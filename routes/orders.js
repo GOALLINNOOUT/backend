@@ -1,0 +1,252 @@
+const express = require('express');
+const router = express.Router();
+const Order = require('../models/Order');
+const { sendOrderEmail, orderCustomerTemplate, orderAdminTemplate, orderStatusUpdateTemplate, orderAdminCancelTemplate } = require('../utils/orderMailer');
+const auth = require('../middleware/auth');
+const { logAdminAction, getDeviceInfo } = require('../utils/logAdminAction');
+const { generateSetupToken } = require('../utils/setupToken');
+const mailer = require('../utils/mailer');
+
+// Admin role check middleware
+function requireAdmin(req, res, next) {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
+}
+
+// Optional auth middleware for public endpoints
+function optionalAuth(req, res, next) {
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+    return auth(req, res, next);
+  }
+  next();
+}
+
+// Create new order (public, token optional)
+router.post('/', optionalAuth, async (req, res) => {
+  try {
+    const { customer, cart, paystackRef, amount, deliveryFee, grandTotal, status, paidAt, sessionId } = req.body;
+    if (!customer || !cart || !paystackRef || !amount || deliveryFee == null || grandTotal == null || !status || !paidAt) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // --- ENHANCEMENT: Backfill user location and log device robustly ---
+    const User = require('../models/User');
+    const SecurityLog = require('../models/SecurityLog');
+    let userDoc = await User.findOne({ email: customer.email });
+    console.log('User lookup result:', userDoc ? 'Found existing user' : 'User not found');
+    let wasAutoCreated = false;
+    if (!userDoc) {
+      console.log('Creating new user for email:', customer.email);
+      userDoc = new User({
+        name: customer.name || customer.email,
+        email: customer.email,
+        password: Math.random().toString(36).slice(-8), // random password, force reset on first login
+        state: customer.state,
+        lga: customer.lga,
+        address: customer.address,
+        phone: customer.phone
+      });
+      await userDoc.save();
+      wasAutoCreated = true;
+      console.log('New user created, wasAutoCreated:', wasAutoCreated);
+    } else {
+      let updated = false;
+      if ((!userDoc.state || userDoc.state === '') && customer.state) { userDoc.state = customer.state; updated = true; }
+      if ((!userDoc.lga || userDoc.lga === '') && customer.lga) { userDoc.lga = customer.lga; updated = true; }
+      if ((!userDoc.address || userDoc.address === '') && customer.address) { userDoc.address = customer.address; updated = true; }
+      if (updated) await userDoc.save();
+      console.log('Using existing user, wasAutoCreated:', wasAutoCreated);
+    }
+    // Now create the order with userDoc._id and sessionId
+    const order = new Order({ customer, cart, paystackRef, amount, deliveryFee, grandTotal, status, paidAt, user: userDoc._id, sessionId });
+    await order.save();
+    // Log device info for every order
+    const device = getDeviceInfo(req);
+    const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    await SecurityLog.create({ user: userDoc._id, action: 'order', device, ip, timestamp: new Date() });
+    // --- END ENHANCEMENT ---
+
+    // Send beautiful email to customer
+    let setupLink = null;
+    if (wasAutoCreated) {
+      // Generate setup token and link
+      const setupToken = generateSetupToken(userDoc);
+      const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+      setupLink = `${clientUrl}/setup-password/${setupToken}`;
+    }
+    sendOrderEmail({
+      to: customer.email,
+      subject: "Your JC's Closet Order Confirmation",
+      html: orderCustomerTemplate(order) + (setupLink ? `<div style='margin-top:32px;text-align:center;'><a href='${setupLink}' style='background:#b48a78;color:#fff;padding:14px 36px;border-radius:6px;text-decoration:none;font-weight:600;font-size:1.1rem;'>Set up your account</a><p style='color:#888;font-size:0.98em;margin-top:8px;'>Create a password to access your order history and enjoy faster checkout next time.</p></div>` : '')
+    }).catch(() => {});
+    // Send beautiful email to admin
+    if (process.env.ADMIN_EMAIL) {
+      sendOrderEmail({
+        to: process.env.ADMIN_EMAIL,
+        subject: 'New JC\'s Closet Order',
+        html: orderAdminTemplate(order)
+      }).catch(() => {});
+    }
+    res.status(201).json({
+      message: 'Order saved',
+      orderId: order._id,
+      wasAutoCreated,
+      email: customer.email
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save order' });
+  }
+});
+
+// All admin order routes below require token and admin role
+router.get('/', auth, requireAdmin, async (req, res) => {
+  try {
+    const { search, email, state } = req.query;
+    let query = {};
+    if (email) {
+      query['customer.email'] = { $regex: email, $options: 'i' };
+    }
+    if (state) {
+      query['customer.state'] = { $regex: state, $options: 'i' };
+    }
+    if (search && search.trim()) {
+      const s = search.trim();
+      query.$or = [
+        { 'customer.name': { $regex: s, $options: 'i' } },
+        { 'customer.email': { $regex: s, $options: 'i' } },
+        { 'customer.phone': { $regex: s, $options: 'i' } },
+        { 'customer.address': { $regex: s, $options: 'i' } },
+        { 'customer.state': { $regex: s, $options: 'i' } },
+        { 'customer.lga': { $regex: s, $options: 'i' } },
+        { _id: { $regex: s, $options: 'i' } },
+      ];
+    }
+    const orders = await Order.find(query).sort({ createdAt: -1 });
+    res.json(orders);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch orders' });
+  }
+});
+
+// Update order status (admin)
+router.patch('/:id', auth, requireAdmin, async (req, res) => {
+  try {
+    const { status } = req.body;
+    const update = { status };
+    if (status === 'shipped') update.shippedAt = new Date();
+    if (status === 'delivered') update.deliveredAt = new Date();
+    if (status === 'cancelled') update.cancelledAt = new Date();
+    console.log('Updating order', req.params.id, 'with', update); // DEBUG
+    const order = await Order.findByIdAndUpdate(req.params.id, update, { new: true });
+    if (!order) {
+      console.error('Order not found for id', req.params.id); // DEBUG
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    await logAdminAction({ req, action: `Updated order status: ${order._id} to ${status}` });
+    // Send status update email to customer
+    if (['shipped', 'delivered', 'cancelled'].includes(status)) {
+      sendOrderEmail({
+        to: order.customer.email,
+        subject: `Your JC's Closet Order is now ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+        html: orderStatusUpdateTemplate(order, status)
+      })
+        .then(() => console.log(`Status email sent to ${order.customer.email} for order ${order._id}`))
+        .catch((err) => console.error('Failed to send status email:', err));
+    }
+    res.json(order);
+  } catch (err) {
+    console.error('Order status update error:', err); // DEBUG
+    res.status(500).json({ error: 'Failed to update order', details: err.message });
+  }
+});
+
+// Delete order (admin)
+router.delete('/:id', auth, requireAdmin, async (req, res) => {
+  try {
+    const order = await Order.findByIdAndDelete(req.params.id);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    await logAdminAction({ req, action: `Deleted order: ${order._id}` });
+    res.json({ message: 'Order deleted' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete order' });
+  }
+});
+
+// Suggestions endpoint for admin order search
+router.get('/suggestions', auth, requireAdmin, async (req, res) => {
+  try {
+    const { query } = req.query;
+    if (!query || !query.trim()) return res.json([]);
+    const q = query.trim();
+    // Find matching emails and states
+    const emailMatches = await Order.find({ 'customer.email': { $regex: q, $options: 'i' } }).distinct('customer.email');
+    const stateMatches = await Order.find({ 'customer.state': { $regex: q, $options: 'i' } }).distinct('customer.state');
+    // Combine and dedupe
+    const suggestions = Array.from(new Set([...emailMatches, ...stateMatches])).slice(0, 10);
+    res.json(suggestions);
+  } catch (err) {
+    res.status(500).json([]);
+  }
+});
+
+// Get all unique states for dropdown
+router.get('/states', auth, requireAdmin, async (req, res) => {
+  try {
+    const states = await Order.distinct('customer.state');
+    res.json(states.filter(Boolean).sort());
+  } catch (err) {
+    res.status(500).json([]);
+  }
+});
+
+// Get orders for the logged-in user
+router.get('/my', auth, async (req, res) => {
+  try {
+    const userEmail = req.user.email;
+    if (!userEmail) return res.status(400).json({ error: 'User email not found in token' });
+    const orders = await Order.find({ 'customer.email': userEmail }).sort({ createdAt: -1 });
+    res.json(orders);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch your orders' });
+  }
+});
+
+// User can cancel their own order
+router.patch('/:id/cancel', auth, async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    // Only allow if the order belongs to the user and is not delivered/cancelled
+    if (order.customer.email !== req.user.email) {
+      return res.status(403).json({ error: 'You can only cancel your own order' });
+    }
+    if (order.status === 'delivered' || order.status === 'cancelled') {
+      return res.status(400).json({ error: 'Order cannot be cancelled' });
+    }
+    order.status = 'cancelled';
+    order.cancelledAt = new Date();
+    await order.save();
+    // Send email notification to user and admin
+    try {
+      sendOrderEmail({
+        to: order.customer.email,
+        subject: "Your JC's Closet Order has been Cancelled",
+        html: orderStatusUpdateTemplate(order, 'cancelled')
+      }).catch(() => {});
+      if (process.env.ADMIN_EMAIL) {
+        sendOrderEmail({
+          to: process.env.ADMIN_EMAIL,
+          subject: 'Order Cancelled by Customer',
+          html: orderAdminCancelTemplate(order)
+        }).catch(() => {});
+      }
+    } catch (e) { /* ignore email errors */ }
+    res.json(order);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to cancel order' });
+  }
+});
+
+module.exports = router;

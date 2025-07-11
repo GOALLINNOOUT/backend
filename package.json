@@ -1,0 +1,32 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Production-ready backend for JC's Closet. Set NODE_ENV via environment variables.",
+  "dependencies": {
+    "@elastic/elasticsearch": "^9.0.3",
+    "bcryptjs": "^3.0.2",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.0.0",
+    "express": "^5.1.0",
+    "html2canvas": "^1.4.1",
+    "json2csv": "^6.0.0-alpha.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.16.1",
+    "multer": "^2.0.1",
+    "node-cron": "^3.0.3",
+    "node-fetch": "^2.7.0",
+    "nodemailer": "^7.0.4",
+    "pdfkit": "^0.17.1",
+    "ua-parser-js": "^2.0.4",
+    "uuid": "^11.1.0"
+  }
+}
