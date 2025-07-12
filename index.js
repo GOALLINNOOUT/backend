@@ -29,7 +29,10 @@ const cartActionsRouter = require('./routes/cartActions');
 
 const app = express();
 app.use(cors({
-  origin: 'http://localhost:5173', // allow Vite dev server
+  origin: [
+    'http://localhost:5173',
+    'https://frontend-pearl-tau-37.vercel.app'
+  ],
   credentials: true
 }));
 app.use(express.json());
