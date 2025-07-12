@@ -63,6 +63,11 @@ async function cleanupSessions() {
     const sessions = await SessionLog.find({ endTime: { $exists: false } });
     let endedSessions = [];
     for (const session of sessions) {
+      // Skip sessions missing startTime (required by schema)
+      if (!session.startTime) {
+        console.warn(`[sessionCleanup] Skipping session with missing startTime: ${session.sessionId}`);
+        continue;
+      }
       const lastPageView = await PageViewLog.findOne(
         { sessionId: session.sessionId },
         {},
