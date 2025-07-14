@@ -26,49 +26,59 @@ function optionalAuth(req, res, next) {
 // Serve uploaded images statically
 router.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// GET suggestions for design search (Elasticsearch)
+// Utility: Levenshtein distance for fuzzy matching
+function levenshtein(a, b) {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+  const matrix = [];
+  for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+  for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1).toLowerCase() === a.charAt(j - 1).toLowerCase()) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1, // substitution
+          matrix[i][j - 1] + 1,     // insertion
+          matrix[i - 1][j] + 1      // deletion
+        );
+      }
+    }
+  }
+  return matrix[b.length][a.length];
+}
+
+// GET suggestions for design search (MongoDB, typo-tolerant)
 router.get('/suggestions', async (req, res) => {
   try {
     const query = req.query.query ? req.query.query.toLowerCase() : '';
     if (!query) return res.json([]);
-    // Elasticsearch query for suggestions
-    const esQuery = {
-      index: 'designs',
-      size: 5,
-      body: {
-        query: {
-          multi_match: {
-            query,
-            fields: ['title^3', 'desc'],
-            fuzziness: 'AUTO',
-          }
-        }
-      }
-    };
-    let hits = [];
-    try {
-      const result = await esClient.search(esQuery);
-      hits = result.hits.hits.map(hit => hit._source);
-    } catch (e) {
-      // fallback to MongoDB if ES fails
-      hits = await Design.find({
-        $or: [
-          { title: { $regex: query, $options: 'i' } },
-          { desc: { $regex: query, $options: 'i' } }
-        ]
-      }).limit(5);
-    }
-    // Collect unique words from titles first, then descriptions
+    // Broad regex to get candidates
+    const candidates = await Design.find({
+      $or: [
+        { title: { $regex: query, $options: 'i' } },
+        { desc: { $regex: query, $options: 'i' } }
+      ]
+    }).limit(20);
+    // Fuzzy match and collect unique words from titles and descriptions
     const titleWords = [];
     const descWords = [];
-    hits.forEach(d => {
+    const maxDist = query.length <= 4 ? 1 : query.length <= 6 ? 2 : 3;
+    candidates.forEach(d => {
       (d.title || '').split(/\s+/).forEach(w => {
-        if (w.toLowerCase().includes(query) && !titleWords.includes(w)) titleWords.push(w);
+        if (!titleWords.includes(w)) {
+          const dist = levenshtein(w.toLowerCase(), query);
+          if (w.toLowerCase().includes(query) || dist <= maxDist) titleWords.push(w);
+        }
       });
     });
-    hits.forEach(d => {
+    candidates.forEach(d => {
       (d.desc || '').split(/\s+/).forEach(w => {
-        if (w.toLowerCase().includes(query) && !titleWords.includes(w) && !descWords.includes(w)) descWords.push(w);
+        if (!titleWords.includes(w) && !descWords.includes(w)) {
+          const dist = levenshtein(w.toLowerCase(), query);
+          if (w.toLowerCase().includes(query) || dist <= maxDist) descWords.push(w);
+        }
       });
     });
     res.json([...titleWords, ...descWords].slice(0, 10));
@@ -77,39 +87,38 @@ router.get('/suggestions', async (req, res) => {
   }
 });
 
-// GET all designs (Elasticsearch with fallback)
+// GET all designs (MongoDB, typo-tolerant search)
 router.get('/', async (req, res) => {
   try {
     const search = req.query.search ? req.query.search.trim() : '';
     let designs = [];
     if (search) {
-      // Elasticsearch query
-      const esQuery = {
-        index: 'designs',
-        size: 50,
-        body: {
-          query: {
-            multi_match: {
-              query: search,
-              fields: ['title^3', 'desc'],
-              fuzziness: 'AUTO',
-            }
-          },
-          sort: [ { createdAt: { order: 'desc' } } ]
+      // Broad regex to get candidates
+      const candidates = await Design.find({
+        $or: [
+          { title: { $regex: search, $options: 'i' } },
+          { desc: { $regex: search, $options: 'i' } }
+        ]
+      }).sort({ createdAt: -1 });
+      // Fuzzy filter
+      const maxDist = search.length <= 4 ? 1 : search.length <= 6 ? 2 : 3;
+      let scored = [];
+      candidates.forEach(d => {
+        let minScore = Infinity;
+        (d.title || '').split(/\s+/).forEach(word => {
+          const dist = levenshtein(word.toLowerCase(), search.toLowerCase());
+          if (dist < minScore) minScore = dist;
+        });
+        (d.desc || '').split(/\s+/).forEach(word => {
+          const dist = levenshtein(word.toLowerCase(), search.toLowerCase());
+          if (dist < minScore) minScore = dist;
+        });
+        if (minScore <= maxDist) {
+          scored.push({ design: d, score: minScore });
         }
-      };
-      try {
-        const result = await esClient.search(esQuery);
-        designs = result.hits.hits.map(hit => ({ _id: hit._id, ...hit._source }));
-      } catch (e) {
-        // fallback to MongoDB if ES fails
-        designs = await Design.find({
-          $or: [
-            { title: { $regex: search, $options: 'i' } },
-            { desc: { $regex: search, $options: 'i' } }
-          ]
-        }).sort({ createdAt: -1 });
-      }
+      });
+      scored.sort((a, b) => a.score - b.score);
+      designs = scored.map(s => s.design);
     } else {
       designs = await Design.find().sort({ createdAt: -1 });
     }
