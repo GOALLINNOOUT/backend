@@ -315,10 +315,14 @@ exports.getCustomerBehavior = async (req, res) => {
 
 exports.getTrafficEngagement = async (req, res) => {
   try {
+    // Exclude admin users from analytics
+    const adminUsers = await User.find({ role: 'admin' }, '_id email');
+    const adminUserIds = adminUsers.map(u => u._id.toString());
+    const adminEmails = adminUsers.map(u => u.email);
     const dateFilter = getDateFilter(req.query, 'timestamp');
-    // Visits trend: count unique IPs per day from PageViewLog
+    // Visits trend: count unique IPs per day from PageViewLog (exclude admin sessions)
     const visitsAgg = await PageViewLog.aggregate([
-      { $match: dateFilter },
+      { $match: { ...dateFilter, user: { $nin: adminUserIds }, email: { $nin: adminEmails } } },
       { $group: {
         _id: { $dateToString: { format: '%Y-%m-%d', date: '$timestamp' } },
         uniqueIps: { $addToSet: '$ip' }
@@ -337,26 +341,26 @@ exports.getTrafficEngagement = async (req, res) => {
       visitsTrends.push({ date: key, visits: trendsMap[key]?.visits || 0 });
     }
 
-    // Avg. session duration (from SessionLog)
-    const sessions = await SessionLog.find({ startTime: { $gte: start }, endTime: { $exists: true } });
+    // Avg. session duration (from SessionLog, exclude admin users)
+    const sessions = await SessionLog.find({ startTime: { $gte: start }, endTime: { $exists: true }, user: { $nin: adminUserIds } });
     let avgSessionDuration = 0;
     if (sessions.length > 0) {
       const totalDuration = sessions.reduce((sum, s) => sum + ((s.endTime - s.startTime) / 60000), 0); // in minutes
       avgSessionDuration = (totalDuration / sessions.length).toFixed(2);
     }
 
-    // Bounce rate (from PageViewLog: sessions with only 1 page view)
+    // Bounce rate (from PageViewLog: sessions with only 1 page view, exclude admin)
     const sessionCounts = await PageViewLog.aggregate([
-      { $match: dateFilter },
+      { $match: { ...dateFilter, user: { $nin: adminUserIds }, email: { $nin: adminEmails } } },
       { $group: { _id: '$sessionId', count: { $sum: 1 } } }
     ]);
     const totalSessions = sessionCounts.length;
     const bouncedSessions = sessionCounts.filter(s => s.count === 1).length;
     const bounceRate = totalSessions > 0 ? ((bouncedSessions / totalSessions) * 100).toFixed(2) : 0;
 
-    // Top landing pages (first page per session)
+    // Top landing pages (first page per session, exclude admin)
     const firstPages = await PageViewLog.aggregate([
-      { $match: dateFilter },
+      { $match: { ...dateFilter, user: { $nin: adminUserIds }, email: { $nin: adminEmails } } },
       { $sort: { sessionId: 1, timestamp: 1 } },
       { $group: { _id: '$sessionId', page: { $first: '$page' } } },
       { $group: { _id: '$page', visits: { $sum: 1 } } },
@@ -365,9 +369,9 @@ exports.getTrafficEngagement = async (req, res) => {
       { $limit: 10 }
     ]);
 
-    // Top Referrers (site sources) - normalize before grouping
+    // Top Referrers (site sources) - normalize before grouping, exclude admin
     const topReferrersAgg = await PageViewLog.aggregate([
-      { $match: dateFilter },
+      { $match: { ...dateFilter, user: { $nin: adminUserIds }, email: { $nin: adminEmails } } },
       { $addFields: {
           normalizedReferrer: {
             $cond: [
@@ -411,9 +415,9 @@ exports.getTrafficEngagement = async (req, res) => {
       visits: r.visits
     }));
 
-    // Top exit pages (last page per session)
+    // Top exit pages (last page per session, exclude admin)
     const lastPages = await PageViewLog.aggregate([
-      { $match: dateFilter },
+      { $match: { ...dateFilter, user: { $nin: adminUserIds }, email: { $nin: adminEmails } } },
       { $sort: { sessionId: 1, timestamp: 1 } },
       { $group: { _id: '$sessionId', page: { $last: '$page' } } },
       { $group: { _id: '$page', exits: { $sum: 1 } } },
@@ -422,9 +426,9 @@ exports.getTrafficEngagement = async (req, res) => {
       { $limit: 10 }
     ]);
 
-    // Page Views Per Session (with email if present)
+    // Page Views Per Session (with email if present, exclude admin)
     const pageViewsPerSessionAgg = await PageViewLog.aggregate([
-      { $match: dateFilter },
+      { $match: { ...dateFilter, user: { $nin: adminUserIds }, email: { $nin: adminEmails } } },
       { $group: {
           _id: '$sessionId',
           pageViews: { $sum: 1 },
@@ -436,9 +440,9 @@ exports.getTrafficEngagement = async (req, res) => {
       { $limit: 10 }
     ]);
 
-    // Top most viewed pages (by total views)
+    // Top most viewed pages (by total views, exclude admin)
     const topMostViewedPagesAgg = await PageViewLog.aggregate([
-      { $match: dateFilter },
+      { $match: { ...dateFilter, user: { $nin: adminUserIds }, email: { $nin: adminEmails } } },
       { $group: { _id: '$page', views: { $sum: 1 } } },
       { $project: { page: '$_id', views: 1, _id: 0 } },
       { $sort: { views: -1 } },
@@ -547,13 +551,17 @@ exports.getMarketingPerformance = async (req, res) => {
 // New: Visits per page (not unique IP)
 exports.getPageVisitsTrend = async (req, res) => {
   try {
+    // Exclude admin users from analytics
+    const adminUsers = await User.find({ role: 'admin' }, '_id email');
+    const adminUserIds = adminUsers.map(u => u._id.toString());
+    const adminEmails = adminUsers.map(u => u.email);
     const dateFilter = getDateFilter(req.query, 'timestamp');
     // Parse start and end for filling missing days
     let start = req.query.startDate ? new Date(req.query.startDate) : null;
     let end = req.query.endDate ? new Date(req.query.endDate) : null;
-    // Aggregate total visits per page per day
+    // Aggregate total visits per page per day, exclude admin
     const visitsAgg = await PageViewLog.aggregate([
-      { $match: dateFilter },
+      { $match: { ...dateFilter, user: { $nin: adminUserIds }, email: { $nin: adminEmails } } },
       { $group: {
         _id: { date: { $dateToString: { format: '%Y-%m-%d', date: '$timestamp' } }, page: '$page' },
         visits: { $sum: 1 }
@@ -595,36 +603,44 @@ exports.getPageVisitsTrend = async (req, res) => {
 // Funnel and Cart Analytics
 exports.getFunnelAnalytics = async (req, res) => {
   try {
+    // Exclude admin users from analytics
+    const adminUsers = await User.find({ role: 'admin' }, '_id email');
+    const adminUserIds = adminUsers.map(u => u._id.toString());
+    const adminEmails = adminUsers.map(u => u.email);
     // Date filter for all logs
     const dateFilter = getDateFilter(req.query);
     const startDate = req.query.startDate ? new Date(req.query.startDate) : new Date(Date.now() - 29 * 24 * 60 * 60 * 1000);
     const endDate = req.query.endDate ? new Date(req.query.endDate) : new Date();
 
     // 1. Funnel: Visit → Add to Cart → Checkout → Purchase
-    // Visits: unique sessions in PageViewLog
-    const visitSessions = await PageViewLog.distinct('sessionId', { timestamp: { $gte: startDate, $lte: endDate } });
+    // Visits: unique sessions in PageViewLog (exclude admin)
+    const visitSessions = await PageViewLog.distinct('sessionId', { timestamp: { $gte: startDate, $lte: endDate }, user: { $nin: adminUserIds }, email: { $nin: adminEmails } });
     const visitCount = visitSessions.length;
 
-    // Add to Cart: unique sessions in CartActionLog (action: 'add')
+    // Add to Cart: unique sessions in CartActionLog (action: 'add', exclude admin)
     const cartActionSessions = await CartActionLog.distinct('sessionId', {
       action: 'add',
-      timestamp: { $gte: startDate, $lte: endDate }
+      timestamp: { $gte: startDate, $lte: endDate },
+      user: { $nin: adminUserIds },
+      email: { $nin: adminEmails }
     });
     const addToCartCount = cartActionSessions.length;
 
-    // Checkout: unique sessions in CheckoutEventLog
+    // Checkout: unique sessions in CheckoutEventLog (exclude admin)
     const checkoutSessions = await CheckoutEventLog.distinct('sessionId', {
-      timestamp: { $gte: startDate, $lte: endDate }
+      timestamp: { $gte: startDate, $lte: endDate },
+      user: { $nin: adminUserIds },
+      email: { $nin: adminEmails }
     });
     const checkoutCount = checkoutSessions.length;
 
-    // Purchase: completed orders (paid/shipped/delivered)
-    const purchaseOrders = await Order.find({ ...dateFilter, status: { $in: ['paid', 'shipped', 'delivered'] } }, 'sessionId').lean();
+    // Purchase: completed orders (paid/shipped/delivered, exclude admin)
+    const purchaseOrders = await Order.find({ ...dateFilter, status: { $in: ['paid', 'shipped', 'delivered'] }, 'customer._id': { $nin: adminUserIds }, 'customer.email': { $nin: adminEmails } }, 'sessionId').lean();
     const purchaseSessionIds = Array.from(new Set(purchaseOrders.map(o => o.sessionId).filter(Boolean)));
     const purchaseCount = purchaseSessionIds.length;
 
-    // 2. Top Added-to-Cart Products (by frequency in cart actions)
-    const cartActions = await CartActionLog.find({ action: 'add', timestamp: { $gte: startDate, $lte: endDate } }).lean();
+    // 2. Top Added-to-Cart Products (by frequency in cart actions, exclude admin)
+    const cartActions = await CartActionLog.find({ action: 'add', timestamp: { $gte: startDate, $lte: endDate }, user: { $nin: adminUserIds }, email: { $nin: adminEmails } }).lean();
     const cartProductCounts = {};
     cartActions.forEach(action => {
       const key = action.productId.toString();
