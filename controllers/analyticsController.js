@@ -25,25 +25,29 @@ function getDateFilter(query, field = 'createdAt') {
 
 exports.getSalesAnalytics = async (req, res) => {
   try {
+    // Exclude admin users from analytics
+    const adminUsers = await User.find({ role: 'admin' }, '_id email');
+    const adminUserIds = adminUsers.map(u => u._id.toString());
+    const adminEmails = adminUsers.map(u => u.email);
     const matchPaid = { status: { $in: ['paid', 'shipped', 'delivered'] } };
     const dateFilter = getDateFilter(req.query);
     // Total sales (number of orders)
-    const totalSales = await Order.countDocuments({ ...matchPaid, ...dateFilter });
+    const totalSales = await Order.countDocuments({ ...matchPaid, ...dateFilter, 'customer._id': { $nin: adminUserIds }, 'customer.email': { $nin: adminEmails } });
     // Total revenue (sum of grandTotal)
     const totalRevenueAgg = await Order.aggregate([
-      { $match: { ...matchPaid, ...dateFilter } },
+      { $match: { ...matchPaid, ...dateFilter, 'customer._id': { $nin: adminUserIds }, 'customer.email': { $nin: adminEmails } } },
       { $group: { _id: null, total: { $sum: '$grandTotal' } } }
     ]);
     const totalRevenue = totalRevenueAgg[0]?.total || 0;
     // Average Order Value
     const avgOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0;
     // Return rate (cancelled orders / total orders)
-    const totalOrders = await Order.countDocuments(dateFilter);
-    const returnedOrders = await Order.countDocuments({ status: 'cancelled', ...dateFilter });
+    const totalOrders = await Order.countDocuments({ ...dateFilter, 'customer._id': { $nin: adminUserIds }, 'customer.email': { $nin: adminEmails } });
+    const returnedOrders = await Order.countDocuments({ status: 'cancelled', ...dateFilter, 'customer._id': { $nin: adminUserIds }, 'customer.email': { $nin: adminEmails } });
     const returnRate = totalOrders > 0 ? ((returnedOrders / totalOrders) * 100).toFixed(2) : 0;
     // Revenue trends (by day)
     const revenueTrends = await Order.aggregate([
-      { $match: { ...matchPaid, ...dateFilter } },
+      { $match: { ...matchPaid, ...dateFilter, 'customer._id': { $nin: adminUserIds }, 'customer.email': { $nin: adminEmails } } },
       { $group: {
         _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
         revenue: { $sum: '$grandTotal' },
@@ -84,9 +88,13 @@ exports.getSalesAnalytics = async (req, res) => {
 
 exports.getProductPerformance = async (req, res) => {
   try {
+    // Exclude admin users from analytics
+    const adminUsers = await User.find({ role: 'admin' }, '_id email');
+    const adminUserIds = adminUsers.map(u => u._id.toString());
+    const adminEmails = adminUsers.map(u => u.email);
     const matchPaid = { status: { $in: ['paid', 'shipped', 'delivered'] } };
     const dateFilter = getDateFilter(req.query);
-    const orders = await Order.find({ ...matchPaid, ...dateFilter }).lean();
+    const orders = await Order.find({ ...matchPaid, ...dateFilter, 'customer._id': { $nin: adminUserIds }, 'customer.email': { $nin: adminEmails } }).lean();
 
     // Map product sales and views
     const productStats = {};
@@ -159,6 +167,10 @@ exports.getProductPerformance = async (req, res) => {
 
 exports.getCustomerBehavior = async (req, res) => {
   try {
+    // Exclude admin users from analytics
+    const adminUsers = await User.find({ role: 'admin' }, '_id email');
+    const adminUserIds = adminUsers.map(u => u._id.toString());
+    const adminEmails = adminUsers.map(u => u.email);
     const dateFilter = getDateFilter(req.query);
     // Extract startDate for device log filtering
     let startDate;
@@ -168,9 +180,10 @@ exports.getCustomerBehavior = async (req, res) => {
       startDate = new Date();
       startDate.setDate(startDate.getDate() - 29);
     }
-    const orders = await Order.find(dateFilter).lean();
-    const allOrders = await Order.find({}).lean();
-    const users = await User.find({ role: 'user' }).lean();
+    // Only include orders from non-admin users
+    const orders = await Order.find({ ...dateFilter, 'customer._id': { $nin: adminUserIds }, 'customer.email': { $nin: adminEmails } }).lean();
+    const allOrders = await Order.find({ 'customer._id': { $nin: adminUserIds }, 'customer.email': { $nin: adminEmails } }).lean();
+    const users = await User.find({ role: 'user', _id: { $nin: adminUserIds }, email: { $nin: adminEmails } }).lean();
 
     // Map user order counts and spend
     const userOrderCounts = {};
@@ -220,9 +233,11 @@ exports.getCustomerBehavior = async (req, res) => {
 
     // Devices Used (count all device categories used by each user who placed orders in the date range)
     const userIds = Array.from(new Set(orders.map(order => order.user ? order.user.toString() : null).filter(Boolean)));
+    // Remove admin userIds from device logs
+    const filteredUserIds = userIds.filter(id => !adminUserIds.includes(id));
     // Get all device logs for these users in the date range
     const deviceLogs = await SecurityLog.find({
-      user: { $in: userIds.map(id => new mongoose.Types.ObjectId(id)) },
+      user: { $in: filteredUserIds.map(id => new mongoose.Types.ObjectId(id)) },
       device: { $exists: true, $ne: null },
       timestamp: { $gte: startDate }
     }).lean();
@@ -268,13 +283,14 @@ exports.getCustomerBehavior = async (req, res) => {
     averageSpendPerCustomer.sort((a, b) => b.spend - a.spend);
 
     // --- Live Visitors & Live Carts ---
-    // Live Visitors: sessions started in last 10 minutes and not ended
+    // Live Visitors: sessions started in last 10 minutes and not ended, and not admin
     const now = new Date();
     const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
-    const liveVisitors = await SessionLog.countDocuments({ startTime: { $gte: tenMinutesAgo }, $or: [ { endTime: null }, { endTime: { $exists: false } } ] });
+    // Get session logs for non-admin users only
+    const liveVisitors = await SessionLog.countDocuments({ startTime: { $gte: tenMinutesAgo }, $or: [ { endTime: null }, { endTime: { $exists: false } } ], user: { $nin: adminUserIds } });
 
-    // Live Carts: unique sessionIds in CartActionLog in last 10 minutes
-    const liveCartSessions = await CartActionLog.distinct('sessionId', { timestamp: { $gte: tenMinutesAgo } });
+    // Live Carts: unique sessionIds in CartActionLog in last 10 minutes, not admin
+    const liveCartSessions = await CartActionLog.distinct('sessionId', { timestamp: { $gte: tenMinutesAgo }, user: { $nin: adminUserIds } });
     const liveCarts = liveCartSessions.length;
 
     res.json({
