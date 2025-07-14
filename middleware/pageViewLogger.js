@@ -39,8 +39,8 @@ module.exports = async function pageViewLogger(req, res, next) {
     }
     // Get device info (user-agent)
     const device = req.headers['user-agent'] || 'Unknown';
-    // Get IP
-    const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    // Get real client IP (Express will use X-Forwarded-For if trust proxy is set)
+    const ip = req.ip;
     // Log the page view
     console.log('[PageViewLogger] Logging page view:', { sessionId, user, email, ip, device, page: req.path }); // DEBUG
     await PageViewLog.create({

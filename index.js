@@ -28,6 +28,8 @@ const cartActionsRouter = require('./routes/cartActions');
 
 
 const app = express();
+// Trust proxy to get real client IP from X-Forwarded-For
+app.set('trust proxy', true);
 app.use(cors({
   origin: [
     'http://localhost:5173',

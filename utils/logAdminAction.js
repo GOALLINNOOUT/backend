@@ -22,7 +22,7 @@ async function logAdminAction({ req, action }) {
     await SecurityLog.create({
       admin: req.user._id,
       action,
-      ip: req.ip || req.headers['x-forwarded-for'] || req.connection?.remoteAddress,
+      ip: req.ip,
       device: getDeviceInfo(req)
     });
   } catch (err) {
