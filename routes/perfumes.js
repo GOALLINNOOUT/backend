@@ -119,37 +119,40 @@ router.get('/', async (req, res) => {
     const search = req.query.search ? req.query.search.trim() : '';
     const category = req.query.category && req.query.category !== 'all' ? req.query.category : null;
 
+    let query = {};
+    if (search && category) {
+      query = {
+        $and: [
+          {
+            $or: [
+              { name: { $regex: search, $options: 'i' } },
+              { description: { $regex: search, $options: 'i' } },
+              { categories: { $regex: search, $options: 'i' } }
+            ]
+          },
+          { categories: category }
+        ]
+      };
+    } else if (search) {
+      query = {
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { description: { $regex: search, $options: 'i' } },
+          { categories: { $regex: search, $options: 'i' } }
+        ]
+      };
+    } else if (category) {
+      query = { categories: category };
+    }
+
     let perfumes = [];
     let total = 0;
     if (search || category) {
-      // Elasticsearch query
-      const esQuery = {
-        index: 'perfumes',
-        from: skip,
-        size: limit,
-        body: {
-          query: {
-            bool: {
-              must: [
-                search ? {
-                  multi_match: {
-                    query: search,
-                    fields: ['name^3', 'description', 'categories'],
-                    fuzziness: 'AUTO',
-                  }
-                } : undefined,
-                category ? {
-                  term: { 'categories.keyword': category }
-                } : undefined
-              ].filter(Boolean)
-            }
-          },
-          sort: [ { createdAt: { order: 'desc' } } ]
-        }
-      };
-      const result = await esClient.search(esQuery);
-      perfumes = result.hits.hits.map(hit => ({ _id: hit._id, ...hit._source }));
-      total = result.hits.total.value || 0;
+      perfumes = await Perfume.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+      total = await Perfume.countDocuments(query);
     } else {
       // Popularity sort: aggregate order counts, cart-adds, merge with perfumes, sort by score
       // 1. Aggregate order counts for each perfume
