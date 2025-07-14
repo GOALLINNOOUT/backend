@@ -350,7 +350,6 @@ exports.getTrafficEngagement = async (req, res) => {
     ]);
 
     // Top Referrers (site sources) - normalize before grouping
-    const yourDomain = process.env.CLIENT_URL || 'http://localhost:5173/'; // Replace with your actual domain in .env
     const topReferrersAgg = await PageViewLog.aggregate([
       { $match: dateFilter },
       { $addFields: {
@@ -359,7 +358,8 @@ exports.getTrafficEngagement = async (req, res) => {
               { $or: [
                 { $eq: ['$referrer', ''] },
                 { $eq: ['$referrer', null] },
-                { $regexMatch: { input: '$referrer', regex: yourDomain, options: 'i' } }
+                { $regexMatch: { input: '$referrer', regex: 'localhost', options: 'i' } },
+                { $regexMatch: { input: '$referrer', regex: 'jccloset', options: 'i' } }
               ] },
               'Direct',
               {
