@@ -55,6 +55,10 @@ router.post('/', async (req, res) => {
       email // Log email if available
     });
     await log.save();
+
+    // Device info is NOT logged to SecurityLog for every page view.
+    // For analytics, aggregate device info from both SecurityLog and PageViewLog collections.
+
     // Update lastActivity in SessionLog for this session
     if (sessionId) {
       await SessionLog.findOneAndUpdate(

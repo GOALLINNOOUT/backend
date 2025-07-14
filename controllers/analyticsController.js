@@ -231,23 +231,50 @@ exports.getCustomerBehavior = async (req, res) => {
     const locations = Object.entries(locationCounts).map(([state, count]) => ({ state, count }));
     locations.sort((a, b) => b.count - a.count);
 
-    // Devices Used (count all device categories used by each user who placed orders in the date range)
-    const userIds = Array.from(new Set(orders.map(order => order.user ? order.user.toString() : null).filter(Boolean)));
-    // Remove admin userIds from device logs
-    const filteredUserIds = userIds.filter(id => !adminUserIds.includes(id));
-    // Get all device logs for these users in the date range
-    const deviceLogs = await SecurityLog.find({
-      user: { $in: filteredUserIds.map(id => new mongoose.Types.ObjectId(id)) },
+    // Devices Used (aggregate device info from both SecurityLog and PageViewLog for all non-admin users in the date range)
+    const allUserIds = users.map(u => u._id.toString());
+    // Get device logs from SecurityLog
+    const securityDeviceLogs = await SecurityLog.find({
+      user: { $in: allUserIds.map(id => new mongoose.Types.ObjectId(id)) },
       device: { $exists: true, $ne: null },
       timestamp: { $gte: startDate }
     }).lean();
-    // Map userId to set of device categories
+    // Get device info from PageViewLog
+    const pageViewDeviceLogs = await PageViewLog.find({
+      sessionId: { $exists: true, $ne: null },
+      userAgent: { $exists: true, $ne: '' },
+      timestamp: { $gte: startDate },
+      email: { $nin: adminEmails }
+    }, 'sessionId userAgent email').lean();
+    // Helper to parse device type from user-agent
+    function parseDeviceType(ua) {
+      if (!ua) return 'unknown';
+      if (/mobile/i.test(ua)) return 'mobile';
+      if (/tablet/i.test(ua)) return 'tablet';
+      return 'desktop';
+    }
+    // Map userId/email to set of device categories
     const userDeviceCategories = {};
-    deviceLogs.forEach(log => {
-      const userId = log.user.toString();
+    // SecurityLog device info
+    securityDeviceLogs.forEach(log => {
+      const userId = log.user?.toString();
       const category = log.device?.split(' | ')[0] || 'unknown';
-      if (!userDeviceCategories[userId]) userDeviceCategories[userId] = new Set();
-      userDeviceCategories[userId].add(category);
+      if (userId) {
+        if (!userDeviceCategories[userId]) userDeviceCategories[userId] = new Set();
+        userDeviceCategories[userId].add(category);
+      }
+    });
+    // PageViewLog device info
+    pageViewDeviceLogs.forEach(log => {
+      // Try to match user by email (since PageViewLog may not have userId)
+      const email = log.email;
+      const user = users.find(u => u.email === email);
+      const userId = user?._id?.toString();
+      const category = parseDeviceType(log.userAgent);
+      if (userId) {
+        if (!userDeviceCategories[userId]) userDeviceCategories[userId] = new Set();
+        userDeviceCategories[userId].add(category);
+      }
     });
     // Count device category usage (a user can be counted in multiple categories)
     const deviceCounts = {};
