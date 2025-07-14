@@ -28,9 +28,8 @@ router.post('/signup', async (req, res) => {
     if (existingUser) {
       return res.status(400).json({ error: 'Email already in use' });
     }
-    const hashedPassword = await bcrypt.hash(password, 10);
-    // Only create and save user after all checks and hashing succeed
-    const user = new User({ name, email, password: hashedPassword, role: role || 'user' }); // Save role
+    // Only create and save user after all checks succeed
+    const user = new User({ name, email, password, role: role || 'user' }); // Save role
     await user.save();
     // Send beautiful welcome email (non-blocking)
     mailer.sendMail({
