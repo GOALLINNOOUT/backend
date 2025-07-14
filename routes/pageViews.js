@@ -10,6 +10,15 @@ router.post('/', async (req, res) => {
     const { page, referrer, sessionId, ip, userAgent, timestamp } = req.body;
     // Basic validation
     if (!page) return res.status(400).json({ error: 'Page is required' });
+
+    // Validate session: must exist and not be ended
+    if (sessionId) {
+      const session = await SessionLog.findOne({ sessionId });
+      if (!session || session.endTime) {
+        return res.status(440).json({ error: 'Session expired' });
+      }
+    }
+
     // Use current time if not provided
     let email = req.user?.email || undefined;
     if (!email) {
