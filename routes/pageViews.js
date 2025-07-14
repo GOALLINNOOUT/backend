@@ -36,7 +36,15 @@ router.post('/', async (req, res) => {
         console.log('[PageViews API] No token found in Authorization header'); // DEBUG
       }
     }
-    console.log('[PageViews API] Logging page view:', { page, referrer, sessionId, ip, userAgent, timestamp, email }); // DEBUG
+    console.log('[PageViews API] Logging page view:', {
+      page,
+      referrer,
+      sessionId,
+      ip: ip || req.ip,
+      userAgent: userAgent || req.headers['user-agent'] || '',
+      timestamp,
+      email
+    }); // DEBUG
     const log = new PageViewLog({
       page,
       referrer: referrer || '',
