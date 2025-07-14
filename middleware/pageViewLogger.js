@@ -17,6 +17,14 @@ module.exports = async function pageViewLogger(req, res, next) {
       sessionId = uuidv4();
       res.cookie && res.cookie('sessionId', sessionId, { httpOnly: true, maxAge: 1000 * 60 * 60 * 24 * 7 });
     }
+
+    // Validate session: must exist and not be ended
+    const session = await SessionLog.findOne({ sessionId });
+    if (!session || session.endTime) {
+      // Session is invalid or ended; respond with session expired
+      return res.status(440).json({ error: 'Session expired' });
+    }
+
     // Try to get user and email from req.user or JWT token
     let user = req.user?._id || null;
     let email = req.user?.email || undefined;
