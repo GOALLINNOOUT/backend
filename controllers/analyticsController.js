@@ -344,7 +344,6 @@ exports.getCustomerBehavior = async (req, res) => {
       retentionRate,
       locations,
       devices,
-      oses,
       customerLifetimeValue,
       topCustomerLifetimeValue,
       averageSpend,
