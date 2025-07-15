@@ -7,9 +7,13 @@ const jwt = require('jsonwebtoken'); // DEBUG: Add JWT for decoding
 // POST /api/v1/page-views - Log a page view
 router.post('/', async (req, res) => {
   try {
-    const { page, referrer, sessionId, ip, userAgent, timestamp } = req.body;
+    let { page, referrer, sessionId, ip, userAgent, timestamp } = req.body;
     // Basic validation
     if (!page) return res.status(400).json({ error: 'Page is required' });
+    // Always use user-agent header if userAgent not provided in body
+    if (!userAgent) {
+      userAgent = req.headers['user-agent'] || '';
+    }
 
     // Validate session: must exist and not be ended
     if (sessionId) {
@@ -41,7 +45,7 @@ router.post('/', async (req, res) => {
       referrer,
       sessionId,
       ip: ip || req.ip,
-      userAgent: userAgent || req.headers['user-agent'] || '',
+      userAgent,
       timestamp,
       email
     }); // DEBUG
@@ -50,7 +54,7 @@ router.post('/', async (req, res) => {
       referrer: referrer || '',
       sessionId: sessionId || null,
       ip: ip || req.ip,
-      userAgent: userAgent || req.headers['user-agent'] || '',
+      userAgent,
       timestamp: timestamp ? new Date(timestamp) : new Date(),
       email // Log email if available
     });

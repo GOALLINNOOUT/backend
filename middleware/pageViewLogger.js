@@ -57,6 +57,7 @@ module.exports = async function pageViewLogger(req, res, next) {
       email, // Log email if available
       ip,
       device,
+      userAgent: device, // Save user agent string for analytics
       page: req.path
     });
     // Update lastActivity in SessionLog for this session
