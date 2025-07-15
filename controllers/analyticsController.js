@@ -526,8 +526,16 @@ exports.getTrafficEngagement = async (req, res) => {
       { $limit: 10 }
     ]);
 
-    // --- OS Usage Aggregation (like getCustomerBehavior) ---
-    // Get device info logs for OS calculation
+    // --- OS Usage Aggregation (match getCustomerBehavior logic) ---
+    // Get device info logs from SecurityLog
+    const users = await User.find({ role: 'user', _id: { $nin: adminUserIds }, email: { $nin: adminEmails } }).lean();
+    const allUserIds = users.map(u => u._id.toString());
+    const securityDeviceLogs = await SecurityLog.find({
+      user: { $in: allUserIds.map(id => new mongoose.Types.ObjectId(id)) },
+      device: { $exists: true, $ne: null },
+      timestamp: { $gte: start }
+    }).lean();
+    // Get device info from PageViewLog
     const pageViewDeviceLogs = await PageViewLog.find({
       sessionId: { $exists: true, $ne: null },
       userAgent: { $exists: true, $ne: '' },
@@ -546,6 +554,19 @@ exports.getTrafficEngagement = async (req, res) => {
       if (s.includes('mac os x') || s.includes('macintosh')) return 'MacOS';
       return 'Other';
     }
+    // SecurityLog: device field may contain user-agent after ' | '
+    securityDeviceLogs.forEach(log => {
+      let ua = null;
+      if (log.device && log.device.includes(' | ')) {
+        ua = log.device.split(' | ')[1];
+      }
+      if (ua) {
+        const os = parseOS(ua);
+        osCounts[os] = (osCounts[os] || 0) + 1;
+        totalOSUsages++;
+      }
+    });
+    // PageViewLog: userAgent field
     pageViewDeviceLogs.forEach(log => {
       if (log.userAgent) {
         const os = parseOS(log.userAgent);
