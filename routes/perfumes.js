@@ -3,7 +3,7 @@ const Perfume = require('../models/Perfume');
 const Order = require('../models/Order');
 const CartActionLog = require('../models/CartActionLog');
 const router = express.Router();
-const upload = require('../utils/upload');
+const cloudinaryUpload = require('../utils/cloudinaryUpload');
 const path = require('path');
 const esClient = require('../utils/elasticsearch');
 const auth = require('../middleware/auth');
@@ -220,12 +220,12 @@ router.get('/:id', async (req, res) => {
 });
 
 // CREATE a perfume (admin only)
-router.post('/', auth, requireAdmin, upload.array('images', 5), async (req, res) => {
+router.post('/', auth, requireAdmin, cloudinaryUpload.array('images', 5), async (req, res) => {
   try {
     const { name, description, price, stock, mainImageIndex, promoEnabled, promoType, promoValue, promoStart, promoEnd } = req.body;
     let categories = req.body.categories || [];
     if (typeof categories === 'string') categories = [categories];
-    const images = req.files ? req.files.map(f => `/api/perfumes/uploads/${f.filename}`) : [];
+    const images = req.files ? req.files.map(f => f.path) : [];
     const perfume = new Perfume({
       name,
       description,
@@ -249,7 +249,7 @@ router.post('/', auth, requireAdmin, upload.array('images', 5), async (req, res)
 });
 
 // UPDATE a perfume (admin only)
-router.put('/:id', auth, requireAdmin, upload.array('images', 5), async (req, res) => {
+router.put('/:id', auth, requireAdmin, cloudinaryUpload.array('images', 5), async (req, res) => {
   try {
     const { name, description, price, stock, mainImageIndex, promoEnabled, promoType, promoValue, promoStart, promoEnd } = req.body;
     let images = req.body.images || [];
@@ -257,7 +257,7 @@ router.put('/:id', auth, requireAdmin, upload.array('images', 5), async (req, re
     if (typeof images === 'string') images = [images];
     if (typeof categories === 'string') categories = [categories];
     if (req.files && req.files.length > 0) {
-      images = images.concat(req.files.map(f => `/api/perfumes/uploads/${f.filename}`));
+      images = images.concat(req.files.map(f => f.path));
     }
     const update = {
       name,
