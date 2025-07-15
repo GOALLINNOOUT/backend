@@ -6,6 +6,7 @@ const PageViewLogSchema = new mongoose.Schema({
   email: { type: String }, // Add email field for analytics
   ip: String,
   device: String,
+  userAgent: String,
   page: { type: String, required: true },
   referrer: { type: String, default: '' }, // Added referrer field
   timestamp: { type: Date, default: Date.now }
