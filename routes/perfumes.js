@@ -311,8 +311,6 @@ router.put('/:id', auth, requireAdmin, cloudinaryUpload.array('images', 5), asyn
   }
 });
 
-const extractCloudinaryPublicId = require('../utils/extractCloudinaryPublicId');
-
 // DELETE a perfume (admin only)
 router.delete('/:id', auth, requireAdmin, async (req, res) => {
   try {
