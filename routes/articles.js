@@ -1,34 +1,21 @@
 const express = require('express');
 const router = express.Router();
 const Article = require('../models/Article');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const cloudinaryUpload = require('../utils/cloudinaryUpload');
+const deleteCloudinaryImage = require('../utils/cloudinaryDelete');
+const extractCloudinaryPublicId = require('../utils/extractCloudinaryPublicId');
 const auth = require('../middleware/auth');
 const requireAdmin = require('../middleware/requireAdmin');
 const { logAdminAction } = require('../utils/logAdminAction');
 
-// Multer setup for image uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadPath = path.join(__dirname, '../uploads');
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath);
-    }
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + '-' + file.originalname.replace(/\s+/g, ''));
-  },
-});
-const upload = multer({ storage });
+// Use Cloudinary for image uploads
 
 // Create Article
-router.post('/', auth, requireAdmin, upload.single('image'), async (req, res) => {
+router.post('/', auth, requireAdmin, cloudinaryUpload.single('image'), async (req, res) => {
   try {
     const { title, content, author, tags, published, image } = req.body;
     // Use image from body if present, otherwise from uploaded file
-    const imageField = image || (req.file ? req.file.filename : undefined);
+    const imageField = image || (req.file ? req.file.path : undefined);
     const article = new Article({
       title,
       content,
@@ -46,12 +33,12 @@ router.post('/', auth, requireAdmin, upload.single('image'), async (req, res) =>
 });
 
 // Upload image only (no article creation)
-router.post('/uploads', upload.single('image'), (req, res) => {
+router.post('/uploads', cloudinaryUpload.single('image'), (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
-    res.status(201).json({ filename: req.file.filename, url: `/uploads/${req.file.filename}` });
+    res.status(201).json({ url: req.file.path });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -188,7 +175,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Update article
-router.put('/:id', auth, requireAdmin, upload.single('image'), async (req, res) => {
+router.put('/:id', auth, requireAdmin, cloudinaryUpload.single('image'), async (req, res) => {
   try {
     const { title, content, author, tags, published } = req.body;
     const update = {
@@ -200,7 +187,7 @@ router.put('/:id', auth, requireAdmin, upload.single('image'), async (req, res) 
       updatedAt: Date.now(),
     };
     if (req.file) {
-      update.image = req.file.filename;
+      update.image = req.file.path;
     }
     const article = await Article.findByIdAndUpdate(req.params.id, update, { new: true });
     if (!article) return res.status(404).json({ error: 'Not found' });
@@ -216,6 +203,11 @@ router.delete('/:id', auth, requireAdmin, async (req, res) => {
   try {
     const article = await Article.findByIdAndDelete(req.params.id);
     if (!article) return res.status(404).json({ error: 'Not found' });
+    // Delete image from Cloudinary
+    if (article.image) {
+      const publicId = extractCloudinaryPublicId(article.image);
+      if (publicId) await deleteCloudinaryImage(publicId);
+    }
     await logAdminAction({ req, action: `Deleted article: ${article.title}` });
     res.json({ message: 'Deleted' });
   } catch (err) {

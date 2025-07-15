@@ -1,7 +1,9 @@
 const express = require('express');
 const Design = require('../models/Design');
 const router = express.Router();
-const upload = require('../utils/upload');
+const cloudinaryUpload = require('../utils/cloudinaryUpload');
+const deleteCloudinaryImage = require('../utils/cloudinaryDelete');
+const extractCloudinaryPublicId = require('../utils/extractCloudinaryPublicId');
 const path = require('path');
 const esClient = require('../utils/elasticsearch');
 const auth = require('../middleware/auth');
@@ -23,8 +25,7 @@ function optionalAuth(req, res, next) {
   next();
 }
 
-// Serve uploaded images statically
-router.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// No longer serve local uploads; all images are on Cloudinary
 
 // Utility: Levenshtein distance for fuzzy matching
 function levenshtein(a, b) {
@@ -162,14 +163,15 @@ router.get('/:id', async (req, res) => {
 });
 
 // CREATE a design with image upload (admin only)
-router.post('/', auth, requireAdmin, upload.array('images', 5), async (req, res) => {
+router.post('/', auth, requireAdmin, cloudinaryUpload.array('images', 5), async (req, res) => {
   try {
     const { title, desc, details, sizes, categories, colors } = req.body;
-    const imgs = req.files ? req.files.map(f => `/api/designs/uploads/${f.filename}`) : [];
+    // Store Cloudinary URLs
+    const imgs = req.files ? req.files.map(f => f.path) : [];
     // Parse JSON fields if sent as string
     const parsedSizes = sizes
       ? (typeof sizes === 'string' ? JSON.parse(sizes) : sizes)
-      : []; // sizes is optional, default to [] if not provided
+      : [];
     const parsedCategories = categories ? (typeof categories === 'string' ? JSON.parse(categories) : categories) : [];
     const parsedColors = colors ? (typeof colors === 'string' ? JSON.parse(colors) : colors) : [];
     if (!parsedCategories || !Array.isArray(parsedCategories) || parsedCategories.length === 0) {
@@ -180,7 +182,7 @@ router.post('/', auth, requireAdmin, upload.array('images', 5), async (req, res)
       desc,
       details,
       imgs,
-      sizes: Array.isArray(parsedSizes) ? parsedSizes : [], // always array
+      sizes: Array.isArray(parsedSizes) ? parsedSizes : [],
       categories: parsedCategories,
       colors: parsedColors,
     });
@@ -193,13 +195,13 @@ router.post('/', auth, requireAdmin, upload.array('images', 5), async (req, res)
 });
 
 // UPDATE a design (admin only)
-router.put('/:id', auth, requireAdmin, upload.array('images', 5), async (req, res) => {
+router.put('/:id', auth, requireAdmin, cloudinaryUpload.array('images', 5), async (req, res) => {
   try {
     const { title, desc, details, sizes, categories, colors } = req.body;
     let imgs = req.body.imgs || [];
-    if (typeof imgs === 'string') imgs = [imgs]; // handle single string
+    if (typeof imgs === 'string') imgs = [imgs];
     if (req.files && req.files.length > 0) {
-      imgs = imgs.concat(req.files.map(f => `/api/designs/uploads/${f.filename}`));
+      imgs = imgs.concat(req.files.map(f => f.path));
     }
     // Parse JSON fields if sent as string
     const parsedSizes = sizes ? (typeof sizes === 'string' ? JSON.parse(sizes) : sizes) : [];
@@ -226,6 +228,13 @@ router.delete('/:id', auth, requireAdmin, async (req, res) => {
   try {
     const design = await Design.findByIdAndDelete(req.params.id);
     if (!design) return res.status(404).json({ error: 'Not found' });
+    // Delete all images from Cloudinary
+    if (Array.isArray(design.imgs)) {
+      for (const url of design.imgs) {
+        const publicId = extractCloudinaryPublicId(url);
+        if (publicId) await deleteCloudinaryImage(publicId);
+      }
+    }
     await logAdminAction({ req, action: `Deleted design: ${design.title}` });
     res.json({ message: 'Deleted' });
   } catch (err) {
