@@ -320,6 +320,8 @@ exports.getCustomerBehavior = async (req, res) => {
     pageViewDeviceLogs.forEach(log => {
       if (log.userAgent) {
         const os = parseOS(log.userAgent);
+        // Debug: log user agent and detected OS
+        console.log('UserAgent:', log.userAgent, 'Detected OS:', os);
         osCounts[os] = (osCounts[os] || 0) + 1;
         totalOSUsages++;
       }
