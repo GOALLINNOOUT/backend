@@ -32,16 +32,7 @@ router.delete('/:id/image', auth, requireAdmin, async (req, res) => {
     res.status(500).json({ error: 'Server error', details: err.message, stack: err.stack });
   }
 });
-const express = require('express');
-const Perfume = require('../models/Perfume');
-const Order = require('../models/Order');
-const CartActionLog = require('../models/CartActionLog');
-const router = express.Router();
-const cloudinaryUpload = require('../utils/cloudinaryUpload');
-const path = require('path');
-const esClient = require('../utils/elasticsearch');
-const auth = require('../middleware/auth');
-const { logAdminAction } = require('../utils/logAdminAction');
+
 
 // Serve uploaded images statically
 router.use('/uploads', express.static(path.join(__dirname, '../uploads')));
