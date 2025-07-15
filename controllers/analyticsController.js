@@ -264,7 +264,7 @@ exports.getCustomerBehavior = async (req, res) => {
       if (s.includes('iphone') || s.includes('ipad') || s.includes('ipod') || s.includes('ios') || s.includes('iphone os')) return 'iOS';
       // Windows detection: covers windows nt, windows, win32, win64
       if (s.includes('windows nt') || s.includes('windows') || s.includes('win32') || s.includes('win64')) return 'Windows';
-      
+
       // MacOS detection: covers mac os x, macintosh, macos
       if (s.includes('mac os x') || s.includes('macintosh') || s.includes('macos')) return 'MacOS';
       return 'Other';
@@ -295,39 +295,11 @@ exports.getCustomerBehavior = async (req, res) => {
     // Count all device usages (not deduplicated per user)
     const deviceCounts = {};
     let totalDeviceUsages = 0;
-    // For OS calculation
-    const osCounts = { Android: 0, iOS: 0, Windows: 0, MacOS: 0, Other: 0 };
-    let totalOSUsages = 0;
-
     Object.values(userDeviceCategories).forEach(categorySet => {
       categorySet.forEach(category => {
         deviceCounts[category] = (deviceCounts[category] || 0) + 1;
         totalDeviceUsages++;
       });
-    });
-
-    // Also aggregate OS from SecurityLog and PageViewLog user-agents
-    // SecurityLog: device field may contain user-agent after ' | '
-    securityDeviceLogs.forEach(log => {
-      let ua = null;
-      if (log.device && log.device.includes(' | ')) {
-        ua = log.device.split(' | ')[1];
-      }
-      if (ua) {
-        const os = parseOS(ua);
-        osCounts[os] = (osCounts[os] || 0) + 1;
-        totalOSUsages++;
-      }
-    });
-    // PageViewLog: userAgent field
-    pageViewDeviceLogs.forEach(log => {
-      if (log.userAgent) {
-        const os = parseOS(log.userAgent);
-        // Debug: log user agent and detected OS
-        console.log('UserAgent:', log.userAgent, 'Detected OS:', os);
-        osCounts[os] = (osCounts[os] || 0) + 1;
-        totalOSUsages++;
-      }
     });
 
     // Calculate percentage of total device usages
@@ -336,13 +308,6 @@ exports.getCustomerBehavior = async (req, res) => {
       percent: totalDeviceUsages > 0 ? ((count / totalDeviceUsages) * 100).toFixed(2) : 0
     }));
     devices.sort((a, b) => b.percent - a.percent);
-
-    // Calculate percentage of total OS usages
-    const oses = Object.entries(osCounts).map(([type, count]) => ({
-      type,
-      percent: totalOSUsages > 0 ? ((count / totalOSUsages) * 100).toFixed(2) : 0
-    }));
-    oses.sort((a, b) => b.percent - a.percent);
 
     // --- Customer Lifetime Value (CLV) and Average Spend ---
     const spendValues = Object.values(userSpend);
@@ -529,8 +494,7 @@ exports.getTrafficEngagement = async (req, res) => {
       { $limit: 10 }
     ]);
 
-    // --- OS Usage Aggregation (match getCustomerBehavior logic) ---
-    // Get device info logs from SecurityLog
+    // --- OS Usage Aggregation (now only in traffic endpoint) ---
     const users = await User.find({ role: 'user', _id: { $nin: adminUserIds }, email: { $nin: adminEmails } }).lean();
     const allUserIds = users.map(u => u._id.toString());
     const securityDeviceLogs = await SecurityLog.find({
@@ -538,25 +502,22 @@ exports.getTrafficEngagement = async (req, res) => {
       device: { $exists: true, $ne: null },
       timestamp: { $gte: start }
     }).lean();
-    // Get device info from PageViewLog
     const pageViewDeviceLogs = await PageViewLog.find({
       sessionId: { $exists: true, $ne: null },
       userAgent: { $exists: true, $ne: '' },
       timestamp: { $gte: start },
       email: { $nin: adminEmails }
     }, 'sessionId userAgent email').lean();
-    // For OS calculation
-    const osCounts = { Android: 0, iOS: 0, Windows: 0, MacOS: 0, Other: 0 };
-    let totalOSUsages = 0;
     function parseOS(ua) {
-      if (!ua || typeof ua !== 'string') return 'Other';
       const s = ua.toLowerCase();
       if (s.includes('android')) return 'Android';
-      if (s.includes('iphone') || s.includes('ipad') || s.includes('ipod')) return 'iOS';
-      if (s.includes('windows nt')) return 'Windows';
-      if (s.includes('mac os x') || s.includes('macintosh')) return 'MacOS';
+      if (s.includes('iphone') || s.includes('ipad') || s.includes('ipod') || s.includes('ios') || s.includes('iphone os')) return 'iOS';
+      if (s.includes('windows nt') || s.includes('windows') || s.includes('win32') || s.includes('win64')) return 'Windows';
+      if (s.includes('mac os x') || s.includes('macintosh') || s.includes('macos')) return 'MacOS';
       return 'Other';
     }
+    const osCounts = { Android: 0, iOS: 0, Windows: 0, MacOS: 0, Other: 0 };
+    let totalOSUsages = 0;
     // SecurityLog: device field may contain user-agent after ' | '
     securityDeviceLogs.forEach(log => {
       let ua = null;
@@ -573,6 +534,8 @@ exports.getTrafficEngagement = async (req, res) => {
     pageViewDeviceLogs.forEach(log => {
       if (log.userAgent) {
         const os = parseOS(log.userAgent);
+        // Debug: log user agent and detected OS
+        console.log('UserAgent:', log.userAgent, 'Detected OS:', os);
         osCounts[os] = (osCounts[os] || 0) + 1;
         totalOSUsages++;
       }
