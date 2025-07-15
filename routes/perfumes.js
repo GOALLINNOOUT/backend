@@ -1,3 +1,25 @@
+const deleteImage = require('../utils/cloudinaryDelete');
+// DELETE a perfume image (admin only)
+router.delete('/:id/image', auth, requireAdmin, async (req, res) => {
+  try {
+    const { publicId } = req.body;
+    if (!publicId) return res.status(400).json({ error: 'Missing publicId' });
+    // Delete from Cloudinary
+    const result = await deleteImage(publicId);
+    if (result.result !== 'ok') return res.status(500).json({ error: 'Failed to delete image from Cloudinary', details: result });
+    // Remove from perfume's images array
+    const perfume = await Perfume.findByIdAndUpdate(
+      req.params.id,
+      { $pull: { images: { $regex: publicId } } },
+      { new: true }
+    );
+    if (!perfume) return res.status(404).json({ error: 'Perfume not found' });
+    await logAdminAction({ req, action: `Deleted image from perfume: ${perfume.name}` });
+    res.json({ success: true, perfume });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error', details: err.message, stack: err.stack });
+  }
+});
 const express = require('express');
 const Perfume = require('../models/Perfume');
 const Order = require('../models/Order');
@@ -286,11 +308,22 @@ router.put('/:id', auth, requireAdmin, cloudinaryUpload.array('images', 5), asyn
   }
 });
 
+const extractCloudinaryPublicId = require('../utils/extractCloudinaryPublicId');
+
 // DELETE a perfume (admin only)
 router.delete('/:id', auth, requireAdmin, async (req, res) => {
   try {
     const perfume = await Perfume.findByIdAndDelete(req.params.id);
     if (!perfume) return res.status(404).json({ error: 'Not found' });
+    // Delete all images from Cloudinary
+    if (perfume.images && perfume.images.length > 0) {
+      for (const url of perfume.images) {
+        const publicId = extractCloudinaryPublicId(url);
+        if (publicId) {
+          await require('../utils/cloudinaryDelete')(publicId);
+        }
+      }
+    }
     await logAdminAction({ req, action: `Deleted perfume: ${perfume.name}` });
     res.json({ message: 'Deleted' });
   } catch (err) {
