@@ -504,7 +504,7 @@ exports.getTrafficEngagement = async (req, res) => {
     const pageViewDeviceLogs = await PageViewLog.find({
       sessionId: { $exists: true, $ne: null },
       userAgent: { $exists: true, $ne: '' },
-      timestamp: { $gte: start },
+      timestamp: { $gte: start, $lte: end },
       email: { $nin: adminEmails }
     }, 'sessionId userAgent email').lean();
     // Debug: log the PageViewLog query filter and time range
