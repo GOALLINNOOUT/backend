@@ -513,6 +513,12 @@ exports.getTrafficEngagement = async (req, res) => {
       timestamp: { $gte: start, $lte: end },
       email: { $nin: adminEmails }
     }, 'sessionId userAgent email').lean();
+    // Debug: check if userAgent filter is causing zero results
+    const pageViewDeviceLogsNoUserAgent = await PageViewLog.find({
+      timestamp: { $gte: start, $lte: end },
+      email: { $nin: adminEmails }
+    }, 'sessionId userAgent email').lean();
+    console.log('PageViewLog entries for OS usage (no userAgent filter):', pageViewDeviceLogsNoUserAgent.length);
     console.log('PageViewLog entries for OS usage (no sessionId filter):', pageViewDeviceLogsNoSession.length);
     // Debug: log the PageViewLog query filter and time range
 console.log('PageViewLog OS usage query filter:', {
