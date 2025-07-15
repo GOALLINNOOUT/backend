@@ -257,7 +257,7 @@ router.patch('/update-customer', async (req, res) => {
     const { _id, name, email, role, status, phone, address, state, lga } = req.body;
     if (!_id) return res.status(400).json({ error: 'User ID required' });
     // Only allow valid roles and statuses
-    const allowedRoles = ['user', 'admin', 'customer'];
+    const allowedRoles = ['user', 'admin'];
     const allowedStatuses = ['active', 'suspended', 'blacklisted'];
     const update = {};
     if (name !== undefined) update.name = name;
