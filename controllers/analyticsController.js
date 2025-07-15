@@ -249,8 +249,10 @@ exports.getCustomerBehavior = async (req, res) => {
     // Helper to parse device type from user-agent
     function parseDeviceType(ua) {
       if (!ua) return 'unknown';
-      if (/mobile/i.test(ua)) return 'mobile';
-      if (/tablet/i.test(ua)) return 'tablet';
+      const uaLower = ua.toLowerCase();
+      // Tablet detection: iPad, Android tablets, Samsung tablets (SM-P*, SM-T*), Sony tablets (SGP*), LG tablets (LG-V*), Amazon Kindle Fire (KF*), Silk browser, Lenovo tablets, Nvidia Shield, generic 'tab', Google Nest Hub, Chromecast built-in, etc.
+      if (/ipad|tablet|sm-p|sm-t|sgp|lg-v|kf[a-z0-9]+|silk|lenovo yt-|shield tablet|k1 build|gt-p|tab|playbook|crkey|nest hub/.test(uaLower)) return 'tablet';
+      if (/mobile/.test(uaLower)) return 'mobile';
       return 'desktop';
     }
     // Map userId/email to set of device categories
