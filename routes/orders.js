@@ -79,7 +79,20 @@ router.post('/', optionalAuth, async (req, res) => {
     sendOrderEmail({
       to: customer.email,
       subject: "Your JC's Closet Order Confirmation",
-      html: orderCustomerTemplate(order) + (setupLink ? `<div style='margin-top:32px;text-align:center;'><a href='${setupLink}' style='background:#b48a78;color:#fff;padding:14px 36px;border-radius:6px;text-decoration:none;font-weight:600;font-size:1.1rem;'>Set up your account</a><p style='color:#888;font-size:0.98em;margin-top:8px;'>Create a password to access your order history and enjoy faster checkout next time.</p></div>` : '')
+      html: orderCustomerTemplate(order) +
+        (setupLink ? `
+        <div style="margin:32px auto 0 auto;max-width:480px;padding:0 10px;text-align:center;">
+          <a href="${setupLink}"
+            style="display:inline-block;background:#b48a78;color:#fff;padding:18px 40px;border-radius:8px;text-decoration:none;font-weight:700;font-size:1.15rem;box-shadow:0 2px 8px rgba(180,138,120,0.15);transition:background 0.2s;">
+            Set up your account
+          </a>
+          <p style="color:#555;font-size:1em;margin-top:16px;line-height:1.5;max-width:400px;margin-left:auto;margin-right:auto;">
+            <strong>Why?</strong> Creating a password lets you access your order history, track your orders, and enjoy faster checkout next time.<br>
+            <span style="color:#b48a78;font-weight:600;">It's quick and secure!</span>
+          </p>
+        </div>
+        <style>@media (max-width:600px){a[style*='padding:18px 40px']{padding:14px 10px;font-size:1rem;}}</style>
+        ` : '')
     }).catch(() => {});
     // Send beautiful email to admin
     if (process.env.ADMIN_EMAIL) {

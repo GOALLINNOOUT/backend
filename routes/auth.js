@@ -78,7 +78,7 @@ router.post('/login', async (req, res) => {
     }
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(400).json({ error: 'Invalid Email' });
+      return res.status(400).json({ error: 'User not found' });
     }
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
@@ -197,7 +197,7 @@ router.post('/setup-password', async (req, res) => {
     if (!payload) return res.status(400).json({ error: 'Invalid or expired token' });
     const user = await User.findOne({ _id: payload._id, email: payload.email });
     if (!user) return res.status(400).json({ error: 'User not found' });
-    user.password = await bcrypt.hash(password, 10);
+    user.password = password; // Let pre-save hook hash it
     await user.save();
     res.json({ message: 'Password set successfully. You can now log in.' });
   } catch (err) {
