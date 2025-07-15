@@ -524,6 +524,39 @@ exports.getTrafficEngagement = async (req, res) => {
       { $limit: 10 }
     ]);
 
+    // --- OS Usage Aggregation (like getCustomerBehavior) ---
+    // Get device info logs for OS calculation
+    const pageViewDeviceLogs = await PageViewLog.find({
+      sessionId: { $exists: true, $ne: null },
+      userAgent: { $exists: true, $ne: '' },
+      timestamp: { $gte: start },
+      email: { $nin: adminEmails }
+    }, 'sessionId userAgent email').lean();
+    // For OS calculation
+    const osCounts = { Android: 0, iOS: 0, Windows: 0, MacOS: 0, Other: 0 };
+    let totalOSUsages = 0;
+    function parseOS(ua) {
+      if (!ua || typeof ua !== 'string') return 'Other';
+      const s = ua.toLowerCase();
+      if (s.includes('android')) return 'Android';
+      if (s.includes('iphone') || s.includes('ipad') || s.includes('ipod')) return 'iOS';
+      if (s.includes('windows nt')) return 'Windows';
+      if (s.includes('mac os x') || s.includes('macintosh')) return 'MacOS';
+      return 'Other';
+    }
+    pageViewDeviceLogs.forEach(log => {
+      if (log.userAgent) {
+        const os = parseOS(log.userAgent);
+        osCounts[os] = (osCounts[os] || 0) + 1;
+        totalOSUsages++;
+      }
+    });
+    const oses = Object.entries(osCounts).map(([type, count]) => ({
+      type,
+      percent: totalOSUsages > 0 ? ((count / totalOSUsages) * 100).toFixed(2) : 0
+    }));
+    oses.sort((a, b) => b.percent - a.percent);
+
     res.json({
       visitsTrends,
       avgSessionDuration,
@@ -532,7 +565,8 @@ exports.getTrafficEngagement = async (req, res) => {
       topReferrers, // <-- new field
       topExitPages: lastPages, // <-- new field
       pageViewsPerSession: pageViewsPerSessionAgg, // <-- new field
-      topMostViewedPages: topMostViewedPagesAgg // <-- new field
+      topMostViewedPages: topMostViewedPagesAgg, // <-- new field
+      oses
     });
   } catch (err) {
     console.error(err);
