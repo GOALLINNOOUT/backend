@@ -530,6 +530,11 @@ exports.getTrafficEngagement = async (req, res) => {
       }
     });
     // PageViewLog: userAgent field
+    // Debug: log number of PageViewLog entries and a sample
+    console.log('PageViewLog entries for OS usage:', pageViewDeviceLogs.length);
+    if (pageViewDeviceLogs.length > 0) {
+      console.log('Sample PageViewLog entry:', pageViewDeviceLogs[0]);
+    }
     pageViewDeviceLogs.forEach(log => {
       if (log.userAgent) {
         const os = parseOS(log.userAgent);
