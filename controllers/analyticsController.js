@@ -507,6 +507,14 @@ exports.getTrafficEngagement = async (req, res) => {
       timestamp: { $gte: start },
       email: { $nin: adminEmails }
     }, 'sessionId userAgent email').lean();
+    // Debug: log the PageViewLog query filter and time range
+    console.log('PageViewLog OS usage query filter:', {
+      sessionId: { $exists: true, $ne: null },
+      userAgent: { $exists: true, $ne: '' },
+      timestamp: { $gte: start },
+      email: { $nin: adminEmails }
+    });
+    console.log('OS usage PageViewLog time range start:', start, 'end:', end);
     function parseOS(ua) {
       const s = ua.toLowerCase();
       if (s.includes('android')) return 'Android';
