@@ -255,6 +255,17 @@ exports.getCustomerBehavior = async (req, res) => {
       if (/mobile/.test(uaLower)) return 'mobile';
       return 'desktop';
     }
+
+    // Helper to parse OS from user-agent string
+    function parseOS(ua) {
+      if (!ua || typeof ua !== 'string') return 'Other';
+      const s = ua.toLowerCase();
+      if (s.includes('android')) return 'Android';
+      if (s.includes('iphone') || s.includes('ipad') || s.includes('ipod')) return 'iOS';
+      if (s.includes('windows nt')) return 'Windows';
+      if (s.includes('mac os x') || s.includes('macintosh')) return 'MacOS';
+      return 'Other';
+    }
     // Map userId/email to set of device categories
     const userDeviceCategories = {};
     // SecurityLog device info
@@ -281,18 +292,52 @@ exports.getCustomerBehavior = async (req, res) => {
     // Count all device usages (not deduplicated per user)
     const deviceCounts = {};
     let totalDeviceUsages = 0;
+    // For OS calculation
+    const osCounts = { Android: 0, iOS: 0, Windows: 0, MacOS: 0, Other: 0 };
+    let totalOSUsages = 0;
+
     Object.values(userDeviceCategories).forEach(categorySet => {
       categorySet.forEach(category => {
         deviceCounts[category] = (deviceCounts[category] || 0) + 1;
         totalDeviceUsages++;
       });
     });
+
+    // Also aggregate OS from SecurityLog and PageViewLog user-agents
+    // SecurityLog: device field may contain user-agent after ' | '
+    securityDeviceLogs.forEach(log => {
+      let ua = null;
+      if (log.device && log.device.includes(' | ')) {
+        ua = log.device.split(' | ')[1];
+      }
+      if (ua) {
+        const os = parseOS(ua);
+        osCounts[os] = (osCounts[os] || 0) + 1;
+        totalOSUsages++;
+      }
+    });
+    // PageViewLog: userAgent field
+    pageViewDeviceLogs.forEach(log => {
+      if (log.userAgent) {
+        const os = parseOS(log.userAgent);
+        osCounts[os] = (osCounts[os] || 0) + 1;
+        totalOSUsages++;
+      }
+    });
+
     // Calculate percentage of total device usages
     const devices = Object.entries(deviceCounts).map(([type, count]) => ({
       type,
       percent: totalDeviceUsages > 0 ? ((count / totalDeviceUsages) * 100).toFixed(2) : 0
     }));
     devices.sort((a, b) => b.percent - a.percent);
+
+    // Calculate percentage of total OS usages
+    const oses = Object.entries(osCounts).map(([type, count]) => ({
+      type,
+      percent: totalOSUsages > 0 ? ((count / totalOSUsages) * 100).toFixed(2) : 0
+    }));
+    oses.sort((a, b) => b.percent - a.percent);
 
     // --- Customer Lifetime Value (CLV) and Average Spend ---
     const spendValues = Object.values(userSpend);
@@ -329,6 +374,7 @@ exports.getCustomerBehavior = async (req, res) => {
       retentionRate,
       locations,
       devices,
+      oses,
       customerLifetimeValue,
       topCustomerLifetimeValue,
       averageSpend,
