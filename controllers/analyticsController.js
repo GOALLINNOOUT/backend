@@ -261,9 +261,12 @@ exports.getCustomerBehavior = async (req, res) => {
       if (!ua || typeof ua !== 'string') return 'Other';
       const s = ua.toLowerCase();
       if (s.includes('android')) return 'Android';
-      if (s.includes('iphone') || s.includes('ipad') || s.includes('ipod')) return 'iOS';
-      if (s.includes('windows nt')) return 'Windows';
-      if (s.includes('mac os x') || s.includes('macintosh')) return 'MacOS';
+      // iOS detection: covers iPhone, iPad, iPod, iOS, iPhone OS
+      if (s.includes('iphone') || s.includes('ipad') || s.includes('ipod') || s.includes('ios') || s.includes('iphone os')) return 'iOS';
+      // Windows detection: covers windows nt, windows, win32, win64
+      if (s.includes('windows nt') || s.includes('windows') || s.includes('win32') || s.includes('win64')) return 'Windows';
+      // MacOS detection: covers mac os x, macintosh, macos
+      if (s.includes('mac os x') || s.includes('macintosh') || s.includes('macos')) return 'MacOS';
       return 'Other';
     }
     // Map userId/email to set of device categories
