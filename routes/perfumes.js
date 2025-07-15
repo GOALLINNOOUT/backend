@@ -1,4 +1,16 @@
+const express = require('express');
+const router = express.Router();
+const Perfume = require('../models/Perfume');
+const Order = require('../models/Order');
+const CartActionLog = require('../models/CartActionLog');
+const cloudinaryUpload = require('../utils/cloudinaryUpload');
+const path = require('path');
+const esClient = require('../utils/elasticsearch');
+const auth = require('../middleware/auth');
+const { logAdminAction } = require('../utils/logAdminAction');
 const deleteImage = require('../utils/cloudinaryDelete');
+const extractCloudinaryPublicId = require('../utils/extractCloudinaryPublicId');
+
 // DELETE a perfume image (admin only)
 router.delete('/:id/image', auth, requireAdmin, async (req, res) => {
   try {
