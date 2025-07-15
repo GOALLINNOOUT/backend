@@ -276,19 +276,19 @@ exports.getCustomerBehavior = async (req, res) => {
         userDeviceCategories[userId].add(category);
       }
     });
-    // Count device category usage (a user can be counted in multiple categories)
+    // Count all device usages (not deduplicated per user)
     const deviceCounts = {};
-    let totalDeviceCategoryUsages = 0;
+    let totalDeviceUsages = 0;
     Object.values(userDeviceCategories).forEach(categorySet => {
       categorySet.forEach(category => {
         deviceCounts[category] = (deviceCounts[category] || 0) + 1;
-        totalDeviceCategoryUsages++;
+        totalDeviceUsages++;
       });
     });
-    // Percentages sum to 100%
+    // Calculate percentage of total device usages
     const devices = Object.entries(deviceCounts).map(([type, count]) => ({
       type,
-      percent: totalDeviceCategoryUsages > 0 ? ((count / totalDeviceCategoryUsages) * 100).toFixed(2) : 0
+      percent: totalDeviceUsages > 0 ? ((count / totalDeviceUsages) * 100).toFixed(2) : 0
     }));
     devices.sort((a, b) => b.percent - a.percent);
 
