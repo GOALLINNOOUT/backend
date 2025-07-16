@@ -172,6 +172,7 @@ router.get('/', async (req, res) => {
 
     let perfumes = [];
     let total = 0;
+    // If search or category, use normal algorithm
     if (search || category) {
       perfumes = await Perfume.find(query)
         .sort({ createdAt: -1 })
@@ -179,30 +180,51 @@ router.get('/', async (req, res) => {
         .limit(limit);
       total = await Perfume.countDocuments(query);
     } else {
+      // Personalized scoring if user is authenticated and has order history
+      let userId = req.user && req.user._id ? req.user._id : null;
+      let userPerfumeIds = [];
+      let userCategories = [];
+      if (userId) {
+        // Get user's past orders
+        const userOrders = await Order.find({ user: userId });
+        userOrders.forEach(order => {
+          if (order.cart && Array.isArray(order.cart)) {
+            order.cart.forEach(item => {
+              if (item._id) userPerfumeIds.push(item._id.toString());
+            });
+          }
+        });
+        // Get categories from user's purchased perfumes
+        if (userPerfumeIds.length > 0) {
+          const purchasedPerfumes = await Perfume.find({ _id: { $in: userPerfumeIds } });
+          purchasedPerfumes.forEach(p => {
+            if (Array.isArray(p.categories)) {
+              userCategories.push(...p.categories);
+            }
+          });
+        }
+      }
       // Popularity sort: aggregate order counts, cart-adds, merge with perfumes, sort by score
-      // 1. Aggregate order counts for each perfume
       const orderCounts = await Order.aggregate([
         { $unwind: '$cart' },
         { $group: { _id: '$cart._id', orderCount: { $sum: '$cart.quantity' } } }
       ]);
-      // 2. Aggregate cart-adds for each perfume
       const cartAdds = await CartActionLog.aggregate([
         { $match: { action: 'add' } },
         { $group: { _id: '$productId', addCount: { $sum: 1 } } }
       ]);
-      // 3. Map for quick lookup
       const orderCountMap = {};
       orderCounts.forEach(item => { orderCountMap[item._id] = item.orderCount; });
       const cartAddMap = {};
       cartAdds.forEach(item => { cartAddMap[item._id.toString()] = item.addCount; });
-      // 4. Get all perfumes
       const allPerfumes = await Perfume.find();
       const now = new Date();
-      // 5. Calculate popularity score
+      // Calculate score
       const scored = allPerfumes.map(p => {
         const orderCount = orderCountMap[p._id.toString()] || 0;
         const addCount = cartAddMap[p._id.toString()] || 0;
         let score = orderCount * 3 + (p.views || 0) + addCount * 2;
+        let suggested = false;
         // Promo bonus
         if (p.promoEnabled && p.promoStart && p.promoEnd && now >= p.promoStart && now <= p.promoEnd) {
           score += 5;
@@ -214,19 +236,28 @@ router.get('/', async (req, res) => {
         }
         // Stock prioritization: deprioritize out-of-stock, boost by stock
         if (p.stock <= 0) {
-          score -= 1000; // Push out-of-stock to bottom
+          score -= 1000;
         } else {
-          score += Math.min(p.stock, 20); // Add up to +20 for stock, but cap
+          score += Math.min(p.stock, 20);
         }
-        return { ...p.toObject(), orderCount, addCount, score };
+        // Personalized boost: if user has history
+        if (userPerfumeIds.length > 0) {
+          // Direct match: user bought this perfume before
+          if (userPerfumeIds.includes(p._id.toString())) {
+            score += 50; // Strong boost for previously purchased
+            suggested = true;
+          } else if (Array.isArray(p.categories) && p.categories.some(cat => userCategories.includes(cat))) {
+            score += 30; // Moderate boost for similar category
+            suggested = true;
+          }
+        }
+        return { ...p.toObject(), orderCount, addCount, score, suggested };
       });
-      // 6. Sort by score descending
       scored.sort((a, b) => b.score - a.score);
       total = scored.length;
-      // 7. Paginate
       perfumes = scored.slice(skip, skip + limit);
     }
-    const hasMore = page * limit < Math.min(total, 720); // Max 20 pages * 3 = 60
+    const hasMore = page * limit < Math.min(total, 720);
     res.json({ data: perfumes, hasMore });
   } catch (err) {
     res.status(500).json({ error: 'Server error', details: err.message, stack: err.stack });
