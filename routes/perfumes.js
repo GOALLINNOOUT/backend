@@ -219,12 +219,16 @@ router.get('/', async (req, res) => {
       cartAdds.forEach(item => { cartAddMap[item._id.toString()] = item.addCount; });
       const allPerfumes = await Perfume.find();
       const now = new Date();
+      // Debug: log userPerfumeIds
+      console.log('UserPerfumeIds:', userPerfumeIds);
       // Calculate score
       const scored = allPerfumes.map(p => {
         const orderCount = orderCountMap[p._id.toString()] || 0;
         const addCount = cartAddMap[p._id.toString()] || 0;
         let score = orderCount * 3 + (p.views || 0) + addCount * 2;
         let suggested = false;
+        // Debug: log perfume id being checked
+        console.log('Checking perfume:', p.name, 'ID:', p._id.toString());
         // Promo bonus
         if (p.promoEnabled && p.promoStart && p.promoEnd && now >= p.promoStart && now <= p.promoEnd) {
           score += 5;
@@ -246,9 +250,11 @@ router.get('/', async (req, res) => {
           if (userPerfumeIds.includes(p._id.toString())) {
             score += 50; // Strong boost for previously purchased
             suggested = true;
+            console.log('Suggested (direct match):', p.name, p._id.toString());
           } else if (Array.isArray(p.categories) && p.categories.some(cat => userCategories.includes(cat))) {
             score += 30; // Moderate boost for similar category
             suggested = true;
+            console.log('Suggested (category match):', p.name, p._id.toString());
           }
         }
         return { ...p.toObject(), orderCount, addCount, score, suggested };
