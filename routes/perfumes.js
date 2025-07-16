@@ -182,6 +182,15 @@ router.get('/', async (req, res) => {
     } else {
       // Personalized scoring if user is authenticated and has order history
       let userId = req.user && req.user._id ? req.user._id : null;
+      // Convert userId to ObjectId if present and not already
+      const mongoose = require('mongoose');
+      if (userId && typeof userId === 'string') {
+        try {
+          userId = mongoose.Types.ObjectId(userId);
+        } catch (e) {
+          console.log('Failed to convert userId to ObjectId:', userId, e);
+        }
+      }
       let userPerfumeIds = [];
       let userCategories = [];
       if (userId) {
