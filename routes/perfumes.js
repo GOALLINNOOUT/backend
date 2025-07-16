@@ -196,7 +196,10 @@ router.get('/', async (req, res) => {
       if (userId) {
         // Get user's past orders
         const userOrders = await Order.find({ user: userId });
+        console.log('Orders found for user:', userId, userOrders.map(o => o._id.toString()));
         userOrders.forEach(order => {
+          // Debug: print user field from each order
+          console.log('Order user field:', order.user);
           if (order.cart && Array.isArray(order.cart)) {
             order.cart.forEach(item => {
               if (item._id) userPerfumeIds.push(item._id.toString());
