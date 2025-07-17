@@ -19,7 +19,8 @@ webpush.setVapidDetails(
 );
 
 // Save push subscription
-router.post('/subscribe', async (req, res) => {
+// Exportable subscribe handler
+async function subscribe(req, res) {
   try {
     const sub = req.body;
     // Optionally associate with logged-in user
@@ -34,7 +35,9 @@ router.post('/subscribe', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Failed to save subscription' });
   }
-});
+}
+router.post('/subscribe', subscribe);
+module.exports.subscribe = subscribe;
 
 // Send push notification to all subscribers (demo)
 router.post('/send', async (req, res) => {
