@@ -6,7 +6,6 @@ const jwt = require('jsonwebtoken');
 // Middleware to log each page view
 // Usage: app.use(pageViewLogger);
 module.exports = function pageViewLogger(req, res, next) {
-  if (!req.route) return next();
   try {
     if (!req.path) return next();
     if (
