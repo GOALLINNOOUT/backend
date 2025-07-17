@@ -7,6 +7,8 @@ const jwt = require('jsonwebtoken');
 // Usage: app.use(pageViewLogger);
 module.exports = async function pageViewLogger(req, res, next) {
   try {
+    // Guard: skip if req.path is undefined (e.g. direct handler)
+    if (!req.path) return next();
     // Only log GET requests for HTML pages (not static assets or API)
     if (req.method !== 'GET' || req.path.startsWith('/api') || req.path.match(/\.(js|css|png|jpg|jpeg|svg|webp|ico)$/i)) {
       return next();
