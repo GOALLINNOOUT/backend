@@ -40,7 +40,7 @@ router.post('/', async (req, res) => {
       html: `
         <div style="max-width:600px;margin:auto;background:#fff;border-radius:8px;box-shadow:0 2px 8px #eee;font-family:sans-serif;padding:24px;">
           <div style="text-align:center;margin-bottom:16px;">
-            <img src='https://jcscloset.com/logo.png' alt="JC's Closet Logo" style="width:60px;height:60px;border-radius:50%;background:#f7f7fa;object-fit:cover;" onerror="this.style.display='none'"/>
+            <img src='https://jccloset.vercel.app/WhatsApp%20Image%202025-06-30%20at%2014.59.32_f1f86020.jpg' alt="JC's Closet Logo" style="width:60px;height:60px;border-radius:50%;background:#f7f7fa;object-fit:cover;" onerror="this.style.display='none'"/>
           </div>
           <h2 style="color:#6c63ff;margin-bottom:8px;">Thank You, ${name}!</h2>
           <p style="font-size:16px;margin:0 0 16px 0;">We have received your message and will get back to you soon.</p>

@@ -118,7 +118,7 @@ router.post('/notify', async (req, res) => {
                 <a href="https://www.instagram.com/jcsclosetng/" style="display:inline-block;background:#b76e79;color:#fff;text-decoration:none;padding:12px 28px;border-radius:6px;font-weight:600;font-size:1rem;">Follow us on Instagram</a>
               </div>
               <hr style="border:none;border-top:1px solid #eee;margin:32px 0;"/>
-              <p style="font-size:0.95rem;color:#888;text-align:center;">JC's Closet &copy; 2025<br>Perfume & Fashion Boutique<br><a href='https://jcscloset.ng' style='color:#b76e79;text-decoration:none;'>jcscloset.ng</a></p>
+              <p style="font-size:0.95rem;color:#888;text-align:center;">JC's Closet &copy; 2025<br>Perfume & Fashion Boutique<br><a href='https://jccloset.vercel.app' style='color:#b76e79;text-decoration:none;'>jccloset.vercel.app</a></p>
             </td>
           </tr>
         </table>

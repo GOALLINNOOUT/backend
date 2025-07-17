@@ -195,7 +195,7 @@ router.patch('/blacklist-user', async (req, res) => {
         <p style="margin-bottom:18px;">We regret to inform you that your JC's Closet account has been <b style='color:#d32f2f;'>suspended</b> by our admin team. You will not be able to log in or place orders until your account is reactivated.</p>
         <p>If you believe this is a mistake or need clarification, please contact our support team below.</p>
         <a class="cta" href="mailto:favouradeyekun@gmail.com" style="display:inline-block;margin:24px 0 0 0;padding:12px 28px;background:#222;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:1rem;">Contact Support</a>
-        <p style="margin-top:24px;font-size:0.98em;color:#888;">JC's Closet | <a href='https://jcscloset.com' style='color:#222;text-decoration:underline;'>Visit our website</a><br>Phone: <a href="tel:+2348022335287" style="color:#222; text-decoration:underline;">+2348022335287</a></p>
+        <p style="margin-top:24px;font-size:0.98em;color:#888;">JC's Closet | <a href='https://jccloset.vercel.app' style='color:#222;text-decoration:underline;'>Visit our website</a><br>Phone: <a href="tel:+2348022335287" style="color:#222; text-decoration:underline;">+2348022335287</a></p>
         <p style="margin-top:32px;color:#aaa;font-size:0.93em;">Thank you for your understanding.<br>The JC's Closet Team</p>
       `
     }).catch(err => console.error('Suspension mail error:', err));
@@ -224,8 +224,8 @@ router.patch('/unsuspend-user', async (req, res) => {
       html: `
         <p>Hi <b>${user.name || user.email}</b>,</p>
         <p style="margin-bottom:18px;">Good news! Your JC's Closet account has been <b style='color:#388e3c;'>re-activated</b>. You may now log in and place orders as usual.</p>
-        <a class="cta" href="https://jcscloset.com/login" style="display:inline-block;margin:24px 0 0 0;padding:12px 28px;background:#222;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:1rem;">Log In Now</a>
-        <p style="margin-top:24px;font-size:0.98em;color:#888;">JC's Closet | <a href='https://jcscloset.com' style='color:#222;text-decoration:underline;'>Visit our website</a><br>Phone: <a href="tel:+2348022335287" style="color:#222; text-decoration:underline;">+2348022335287</a> | Email: <a href="mailto:favouradeyekun@gmail.com" style="color:#222; text-decoration:underline;">favouradeyekun@gmail.com</a></p>
+        <a class="cta" href="https://jccloset.vercel.app/login" style="display:inline-block;margin:24px 0 0 0;padding:12px 28px;background:#222;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:1rem;">Log In Now</a>
+        <p style="margin-top:24px;font-size:0.98em;color:#888;">JC's Closet | <a href='https://jccloset.vercel.app' style='color:#222;text-decoration:underline;'>Visit our website</a><br>Phone: <a href="tel:+2348022335287" style="color:#222; text-decoration:underline;">+2348022335287</a> | Email: <a href="mailto:favouradeyekun@gmail.com" style="color:#222; text-decoration:underline;">favouradeyekun@gmail.com</a></p>
         <p style="margin-top:32px;color:#aaa;font-size:0.93em;">Thank you for your patience.<br>The JC's Closet Team</p>
       `
     }).catch(err => console.error('Unsuspension mail error:', err));

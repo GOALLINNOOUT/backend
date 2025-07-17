@@ -73,7 +73,7 @@ router.post('/', optionalAuth, async (req, res) => {
     if (wasAutoCreated) {
       // Generate setup token and link
       const setupToken = generateSetupToken(userDoc);
-      const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+      const clientUrl = process.env.CLIENT_URL || 'https://jccloset.vercel.app';
       setupLink = `${clientUrl}/setup-password/${setupToken}`;
     }
     sendOrderEmail({

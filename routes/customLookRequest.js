@@ -73,7 +73,7 @@ router.post('/', async (req, res) => {
 <body>
   <div class=\"container\">
     <div class=\"brand\">
-      <img src=\"https://jcscloset.com/logo.png\" alt=\"JC's Closet Logo\" class=\"brand-logo\" onerror=\"this.style.display='none'\" />
+      <img src=\"https://jccloset.vercel.app/WhatsApp%20Image%202025-06-30%20at%2014.59.32_f1f86020.jpg\" alt=\"JC's Closet Logo\" class=\"brand-logo\" onerror=\"this.style.display='none'\" />
       <div class=\"brand-title\">JC's Closet</div>
     </div>
     <div class=\"section-title\">New Custom Look Request</div>
@@ -86,7 +86,7 @@ router.post('/', async (req, res) => {
     </ul>
     <div class=\"footer\">
       This notification was sent by JC's Closet. <br />
-      <a href=\"https://jcscloset.com\" style=\"color:#1976d2;text-decoration:none;\">jcscloset.com</a>
+      <a href=\"https://jccloset.vercel.app\" style=\"color:#1976d2;text-decoration:none;\">jccloset.vercel.app</a>
     </div>
   </div>
 </body>

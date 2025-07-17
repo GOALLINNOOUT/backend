@@ -31,7 +31,7 @@ function brandMailWrapper(content) {
   <body>
     <div class="container">
       <div class="brand">
-        <img src="https://jcscloset.com/logo.png" alt="JC's Closet Logo" class="brand-logo" style="display:block;margin:0 auto 8px auto;" />
+        <img src="https://jccloset.vercel.app/WhatsApp%20Image%202025-06-30%20at%2014.59.32_f1f86020.jpg" alt="JC's Closet Logo" class="brand-logo" style="display:block;margin:0 auto 8px auto;" />
         <div class="brand-title">JC's Closet</div>
       </div>
       <div class="content">
@@ -56,7 +56,7 @@ async function sendAppointmentEmails({ name, email, service, datetime }) {
       <p>Thank you for booking an appointment for <b>${service}</b> on <b>${formattedDate}</b>.<br>
       We will contact you soon to confirm your session and share more details.</p>
       <p style="margin-top: 18px;">If you have any questions, reply to this email or call <a href="tel:+1234567890" style="color:#222; text-decoration:underline;">+1 (234) 567-890</a>.</p>
-      <a class="cta" href="https://jcscloset.com">Visit JC's Closet</a>
+      <a class="cta" href="https://jccloset.vercel.app">Visit JC's Closet</a>
       <p style="margin-top: 32px; color: #888; font-size: 0.95em;">Thank you for choosing JC's Closet!</p>
     `),
   });

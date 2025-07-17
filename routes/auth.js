@@ -39,15 +39,15 @@ router.post('/signup', async (req, res) => {
       html: `
       <div style="max-width:520px;margin:auto;font-family:'Segoe UI',Arial,sans-serif;background:#fff;border-radius:12px;box-shadow:0 2px 8px #e0e0e0;overflow:hidden;">
         <div style="background:#AFCBFF;padding:32px 0;text-align:center;">
-          <img src="https://jcscloset.com/logo.png" alt="JC's Closet Logo" style="height:60px;margin-bottom:10px;" onerror="this.style.display='none'"/>
+          <img src="https://jccloset.vercel.app/WhatsApp%20Image%202025-06-30%20at%2014.59.32_f1f86020.jpg" alt="JC's Closet Logo" style="height:60px;margin-bottom:10px;" onerror="this.style.display='none'"/>
           <h1 style="color:#222;margin:0;font-size:2rem;letter-spacing:1px;">Welcome to JC's Closet!</h1>
         </div>
         <div style="padding:32px 28px 24px 28px;">
           <p style="font-size:1.1rem;color:#333;">Hi <b>${name}</b>,</p>
           <p style="font-size:1.1rem;color:#333;">Thank you for signing up at <b>JC's Closet</b>! We're thrilled to have you join our fashion-forward community.</p>
-          <p style="color:#444;">Start exploring our <a href="https://jcscloset.com/fashion" style="color:#AFCBFF;text-decoration:underline;">latest collections</a>, book a <a href="https://jcscloset.com/appointments" style="color:#AFCBFF;text-decoration:underline;">styling session</a>, or discover our exclusive <a href="https://jcscloset.com/perfumes" style="color:#AFCBFF;text-decoration:underline;">perfumes</a>.</p>
+          <p style="color:#444;">Start exploring our <a href="https://jccloset.vercel.app/fashion" style="color:#AFCBFF;text-decoration:underline;">latest collections</a>, book a <a href="https://jccloset.vercel.app/appointments" style="color:#AFCBFF;text-decoration:underline;">styling session</a>, or discover our exclusive <a href="https://jccloset.vercel.app/perfumes" style="color:#AFCBFF;text-decoration:underline;">perfumes</a>.</p>
           <div style="margin:32px 0;text-align:center;">
-            <a href="https://jcscloset.com" style="background:#AFCBFF;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-weight:600;font-size:1.1rem;box-shadow:0 2px 6px #e0e0e0;">Visit JC's Closet</a>
+            <a href="https://jccloset.vercel.app" style="background:#AFCBFF;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-weight:600;font-size:1.1rem;box-shadow:0 2px 6px #e0e0e0;">Visit JC's Closet</a>
           </div>
           <p style="font-size:1rem;color:#888;">With love,<br/>JC's Closet Team</p>
         </div>
@@ -129,14 +129,14 @@ router.post('/forgot-password', async (req, res) => {
     user.resetPasswordExpires = resetTokenExpires;
     await user.save();
     // Send email (placeholder)
-    const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
+    const resetUrl = `${process.env.CLIENT_URL || 'https://jccloset.vercel.app'}/reset-password/${resetToken}`;
     await mailer.sendMail({
       to: user.email,
       subject: "Reset your JC's Closet password",
       html: `
       <div style="max-width:520px;margin:auto;font-family:'Segoe UI',Arial,sans-serif;background:#fff;border-radius:12px;box-shadow:0 2px 8px #e0e0e0;overflow:hidden;">
         <div style="background:#AFCBFF;padding:32px 0;text-align:center;">
-          <img src="https://jcscloset.com/logo.png" alt="JC's Closet Logo" style="height:60px;margin-bottom:10px;" onerror="this.style.display='none'"/>
+          <img src="https://jccloset.vercel.app/WhatsApp%20Image%202025-06-30%20at%2014.59.32_f1f86020.jpg" alt="JC's Closet Logo" style="height:60px;margin-bottom:10px;" onerror="this.style.display='none'"/>
           <h1 style="color:#222;margin:0;font-size:2rem;letter-spacing:1px;">Reset Your Password</h1>
         </div>
         <div style="padding:32px 28px 24px 28px;">
