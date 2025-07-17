@@ -18,6 +18,7 @@ const customLookRequestRouter = require('./routes/customLookRequest');
 const analyticsRouter = require('./routes/analytics');
 const exportRouter = require('./routes/export');
 const aiRecommendationsRouter = require('./routes/aiRecommendations');
+const notificationsRouter = require('./routes/notifications');
 const cookieParser = require('cookie-parser');
 const updateLastActivity = require('./middleware/updateLastActivity');
 const sessionLogger = require('./middleware/sessionLogger');
@@ -43,6 +44,7 @@ app.use(cookieParser());
 app.use(updateLastActivity); // Update lastActivity for any backend/API request
 app.use(sessionLogger);
 app.use(pageViewLogger);
+app.use('/api/notifications', notificationsRouter);
 
 // Serve uploads folder statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
