@@ -76,7 +76,13 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(updateLastActivity); // Update lastActivity for any backend/API request
 app.use(sessionLogger);
-app.use(pageViewLogger);
+// Only log real page views, not API or static requests
+app.use((req, res, next) => {
+  if (req.method === 'GET' && !req.path.startsWith('/api')) {
+    return pageViewLogger(req, res, next);
+  }
+  next();
+});
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/push', pushRouter);
 // Direct push-subscribe endpoint for compatibility
