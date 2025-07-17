@@ -50,6 +50,23 @@ router.post('/subscribe', async (req, res) => {
         </div>
       `
     });
+    // Send notification to user (if registered)
+    const User = require('../models/User');
+    const userDoc = await User.findOne({ email });
+    if (userDoc) {
+      const { sendNotification } = require('../utils/notificationUtil');
+      await sendNotification({
+        userId: userDoc._id,
+        message: `You have successfully subscribed to the JC's Closet newsletter!`,
+        type: 'info'
+      });
+    }
+    // Notify all admins
+    const { notifyAdmins } = require('../utils/notificationUtil');
+    await notifyAdmins({
+      message: `New newsletter subscription: ${email}`,
+      type: 'system'
+    });
     return res.json({ message: 'Subscription successful! Please check your email.' });
   } catch (err) {
     console.error('Newsletter subscribe error:', err);

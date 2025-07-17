@@ -102,6 +102,17 @@ router.post('/', optionalAuth, async (req, res) => {
         html: orderAdminTemplate(order)
       }).catch(() => {});
     }
+    // Send notification to user
+    await sendNotification({
+      userId: userDoc._id,
+      message: `Your order has been placed successfully! Order ID: ${order._id}`,
+      type: 'order'
+    });
+    // Notify all admins
+    await notifyAdmins({
+      message: `New order placed by ${customer.name || customer.email}. Order ID: ${order._id}`,
+      type: 'order'
+    });
     res.status(201).json({
       message: 'Order saved',
       orderId: order._id,

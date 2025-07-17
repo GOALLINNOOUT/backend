@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Contact = require('../models/Contact');
 const mailer = require('../utils/mailer');
+const { sendNotification, notifyAdmins } = require('../utils/notificationUtil');
 
 // POST /api/contact
 router.post('/', async (req, res) => {
@@ -55,6 +56,21 @@ router.post('/', async (req, res) => {
       `,
     });
 
+    // Send notification to user (if registered)
+    const User = require('../models/User');
+    const userDoc = await User.findOne({ email });
+    if (userDoc) {
+      await sendNotification({
+        userId: userDoc._id,
+        message: `Thank you for contacting JC's Closet. We have received your message.`,
+        type: 'info'
+      });
+    }
+    // Notify all admins
+    await notifyAdmins({
+      message: `New contact form submission from ${name} (${email}).`,
+      type: 'system'
+    });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to process your request.' });

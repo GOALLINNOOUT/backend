@@ -94,6 +94,22 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // Send notification to user (if registered)
+    const User = require('../models/User');
+    const userDoc = await User.findOne({ email });
+    if (userDoc) {
+      const { sendNotification, notifyAdmins } = require('../utils/notificationUtil');
+      await sendNotification({
+        userId: userDoc._id,
+        message: `Your custom look request has been received. We'll get back to you soon!`,
+        type: 'info'
+      });
+      // Notify all admins
+      await notifyAdmins({
+        message: `New custom look request from ${name} (${email}).`,
+        type: 'system'
+      });
+    }
     res.status(201).json({ message: 'Request submitted successfully.' });
   } catch (err) {
     res.status(500).json({ message: 'Server error. Please try again.' });
