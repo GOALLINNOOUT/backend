@@ -19,6 +19,7 @@ const analyticsRouter = require('./routes/analytics');
 const exportRouter = require('./routes/export');
 const aiRecommendationsRouter = require('./routes/aiRecommendations');
 const notificationsRouter = require('./routes/notifications');
+const pushRouter = require('./routes/push');
 const cookieParser = require('cookie-parser');
 const updateLastActivity = require('./middleware/updateLastActivity');
 const sessionLogger = require('./middleware/sessionLogger');
@@ -28,7 +29,39 @@ const pageViewsRouter = require('./routes/pageViews');
 const cartActionsRouter = require('./routes/cartActions');
 
 
+const http = require('http');
 const app = express();
+const server = http.createServer(app);
+const { Server } = require('socket.io');
+const io = new Server(server, {
+  cors: {
+    origin: [
+      'http://localhost:5173',
+      'https://frontend-pearl-tau-37.vercel.app',
+      'https://jccloset.vercel.app'
+    ],
+    credentials: true
+  }
+});
+
+// Socket.IO connection
+io.on('connection', (socket) => {
+  console.log('Socket connected:', socket.id);
+  // Listen for user identification (e.g., userId)
+  socket.on('identify', (userId) => {
+    socket.join(`user_${userId}`);
+  });
+  // Listen for admin identification
+  socket.on('admin', () => {
+    socket.join('admins');
+  });
+  socket.on('disconnect', () => {
+    console.log('Socket disconnected:', socket.id);
+  });
+});
+
+// Make io accessible in routes
+app.set('io', io);
 // Trust proxy to get real client IP from X-Forwarded-For
 app.set('trust proxy', true);
 app.use(cors({
@@ -45,6 +78,7 @@ app.use(updateLastActivity); // Update lastActivity for any backend/API request
 app.use(sessionLogger);
 app.use(pageViewLogger);
 app.use('/api/notifications', notificationsRouter);
+app.use('/api/push', pushRouter);
 
 // Serve uploads folder statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -57,6 +91,12 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/jcscloset
 
 mongoose.connection.on('connected', () => {
   console.log('MongoDB connected');
+});
+
+// Start server with Socket.IO
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => {
+  console.log(`JC's Closet API running on port ${PORT}`);
 });
 
 // --- Session Cleanup Cron ---
