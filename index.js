@@ -79,6 +79,8 @@ app.use(sessionLogger);
 app.use(pageViewLogger);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/push', pushRouter);
+// Direct push-subscribe endpoint for compatibility
+app.post('/api/push-subscribe', require('./routes/push').subscribe);
 
 // Serve uploads folder statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
