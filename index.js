@@ -84,9 +84,9 @@ app.use((req, res, next) => {
   next();
 });
 app.use('/api/notifications', notificationsRouter);
-app.use('/api/push', pushRouter);
+app.use('/api/push', pushRouter.router);
 // Direct push-subscribe endpoint for compatibility
-app.post('/api/push-subscribe', require('./routes/push').subscribe);
+app.post('/api/push-subscribe', pushRouter.subscribe);
 
 // Serve uploads folder statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
