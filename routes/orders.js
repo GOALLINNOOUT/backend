@@ -226,7 +226,7 @@ router.patch('/:id', auth, requireAdmin, async (req, res) => {
       return res.status(404).json({ error: 'Order not found' });
     }
     await logAdminAction({ req, action: `Updated order status: ${order._id} to ${status}` });
-    // Send status update email to customer
+    // Send status update email and push notification to customer
     if (['shipped', 'delivered', 'cancelled'].includes(status)) {
       sendOrderEmail({
         to: order.customer.email,
@@ -235,6 +235,18 @@ router.patch('/:id', auth, requireAdmin, async (req, res) => {
       })
         .then(() => console.log(`Status email sent to ${order.customer.email} for order ${order._id}`))
         .catch((err) => console.error('Failed to send status email:', err));
+
+      // Send push notification
+      try {
+        const { sendPushToUserAndAdmins } = require('./push');
+        await sendPushToUserAndAdmins(order.user, {
+          title: `Order ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+          body: `Your order #${order._id.toString().slice(-6)} is now ${status}.`,
+          url: `/orders`
+        });
+      } catch (pushErr) {
+        console.error('Failed to send push notification:', pushErr);
+      }
     }
     res.json(order);
   } catch (err) {
