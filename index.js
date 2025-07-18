@@ -85,7 +85,7 @@ app.use((req, res, next) => {
   next();
 });
 app.use('/api/notifications', notificationsRouter);
-app.use('/api/push', pushRouter);
+app.use('/api/push', pushRouter.router);
 // Direct push-subscribe endpoint for compatibility
 app.post('/api/push-subscribe', pushRouter.subscribe);
 
