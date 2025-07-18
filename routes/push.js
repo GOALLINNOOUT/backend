@@ -14,13 +14,15 @@ async function sendPushToUserAndAdmins(userId, { title, body, url }) {
   const allSubs = [...userSubs, ...adminSubs].filter((sub, idx, arr) =>
     arr.findIndex(s => s.endpoint === sub.endpoint) === idx
   );
+  console.log('[Push] Sending push to', allSubs.length, 'subscriptions. User:', userId, 'Admins:', adminIds);
   let sent = 0;
   for (const sub of allSubs) {
     try {
       await webpush.sendNotification(sub, payload);
       sent++;
+      console.log('[Push] Sent to', sub.endpoint);
     } catch (err) {
-      // Ignore errors for now (expired, etc.)
+      console.error('[Push] Failed to send to', sub.endpoint, err.message);
     }
   }
   return sent;
