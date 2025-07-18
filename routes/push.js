@@ -1,3 +1,31 @@
+// Utility: Send push notification to a specific user and all admins
+// Usage: await sendPushToUserAndAdmins(userId, { title, body, url })
+const User = require('../models/User');
+async function sendPushToUserAndAdmins(userId, { title, body, url }) {
+  const payload = JSON.stringify({ title, body, url });
+  // Find subscriptions for the user
+  const userSubs = await Subscription.find({ user: userId });
+  // Find all admin users
+  const admins = await User.find({ role: 'admin' });
+  const adminIds = admins.map(a => a._id);
+  // Find subscriptions for all admins
+  const adminSubs = await Subscription.find({ user: { $in: adminIds } });
+  // Merge and deduplicate by endpoint
+  const allSubs = [...userSubs, ...adminSubs].filter((sub, idx, arr) =>
+    arr.findIndex(s => s.endpoint === sub.endpoint) === idx
+  );
+  let sent = 0;
+  for (const sub of allSubs) {
+    try {
+      await webpush.sendNotification(sub, payload);
+      sent++;
+    } catch (err) {
+      // Ignore errors for now (expired, etc.)
+    }
+  }
+  return sent;
+}
+module.exports.sendPushToUserAndAdmins = sendPushToUserAndAdmins;
 const express = require('express');
 const router = express.Router();
 const webpush = require('web-push');

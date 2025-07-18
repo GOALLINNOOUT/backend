@@ -103,25 +103,36 @@ router.post('/', optionalAuth, async (req, res) => {
       }).catch(() => {});
     }
         
-        // Emit Socket.IO events for real-time notification
-        const io = req.app.get('io');
-        if (io) {
-          console.log('[Order] Emitting notification to user room:', `user_${userDoc._id}`);
-          io.to(`user_${userDoc._id}`).emit('notification', {
-            message: `Your order has been placed successfully! Order ID: ${order._id}`,
-            type: 'order',
-            createdAt: new Date(),
-            read: false
-          });
-          console.log('[Order] Emitting notification to admins room: admins');
-          io.to('admins').emit('notification', {
-            message: `New order placed by ${customer.name || customer.email}. Order ID: ${order._id}`,
-            type: 'order',
-            createdAt: new Date(),
-            read: false
-          });
-        }
+        // // Emit Socket.IO events for real-time notification
+        // const io = req.app.get('io');
+        // if (io) {
+        //   console.log('[Order] Emitting notification to user room:', `user_${userDoc._id}`);
+        //   io.to(`user_${userDoc._id}`).emit('notification', {
+        //     message: `Your order has been placed successfully! Order ID: ${order._id}`,
+        //     type: 'order',
+        //     createdAt: new Date(),
+        //     read: false
+        //   });
+        //   console.log('[Order] Emitting notification to admins room: admins');
+        //   io.to('admins').emit('notification', {
+        //     message: `New order placed by ${customer.name || customer.email}. Order ID: ${order._id}`,
+        //     type: 'order',
+        //     createdAt: new Date(),
+        //     read: false
+        //   });
+        // }
 
+    // Send push notification to user and all admins
+    try {
+      const { sendPushToUserAndAdmins } = require('./push');
+      await sendPushToUserAndAdmins(userDoc._id, {
+        title: "Order Placed!",
+        body: `Order #${order._id.toString().slice(-6).toUpperCase()} placed by ${customer.name || customer.email}`,
+        url: `/orders/${order._id}`
+      });
+    } catch (err) {
+      // Ignore push errors for now
+    }
     res.status(201).json({
       message: 'Order saved',
       orderId: order._id,
