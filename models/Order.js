@@ -24,10 +24,10 @@ const OrderSchema = new mongoose.Schema({
     }
   ],
   paystackRef: { type: String, required: true },
-  amount: { type: Number, required: true }, // subtotal (cart only)
+  amount: { type: Number, required: true }, 
   deliveryFee: { type: Number, required: true },
   grandTotal: { type: Number, required: true },
-  status: { type: String, enum: ['paid', 'shipped', 'delivered', 'cancelled'], default: 'paid' },
+  status: { type: String, enum: ['paid', 'shipped', 'out_for_delivery', 'delivered', 'cancelled'], default: 'paid' },
   paidAt: { type: Date, required: true },
   shippedAt: { type: Date },
   deliveredAt: { type: Date },

@@ -217,6 +217,7 @@ router.patch('/:id', auth, requireAdmin, async (req, res) => {
     const { status } = req.body;
     const update = { status };
     if (status === 'shipped') update.shippedAt = new Date();
+    if (status === 'out_for_delivery') update.outForDeliveryAt = new Date();
     if (status === 'delivered') update.deliveredAt = new Date();
     if (status === 'cancelled') update.cancelledAt = new Date();
     console.log('Updating order', req.params.id, 'with', update); // DEBUG
@@ -226,24 +227,44 @@ router.patch('/:id', auth, requireAdmin, async (req, res) => {
       return res.status(404).json({ error: 'Order not found' });
     }
     await logAdminAction({ req, action: `Updated order status: ${order._id} to ${status}` });
-    // Send status update email and push notification to customer
-    if (['shipped', 'delivered', 'cancelled'].includes(status)) {
+    // Send status update email and push notification to customer and admins
+    if (['shipped', 'delivered', 'cancelled', 'out_for_delivery'].includes(status)) {
+      let emailSubject = `Your JC's Closet Order is now ${status.charAt(0).toUpperCase() + status.slice(1)}`;
+      let emailHtml = orderStatusUpdateTemplate(order, status);
+      if (status === 'out_for_delivery') {
+        emailSubject = `Your JC's Closet Order is Out for Delivery!`;
+      }
       sendOrderEmail({
         to: order.customer.email,
-        subject: `Your JC's Closet Order is now ${status.charAt(0).toUpperCase() + status.slice(1)}`,
-        html: orderStatusUpdateTemplate(order, status)
+        subject: emailSubject,
+        html: emailHtml
       })
         .then(() => console.log(`Status email sent to ${order.customer.email} for order ${order._id}`))
         .catch((err) => console.error('Failed to send status email:', err));
 
-      // Send push notification
+      // Send push notification to user only
       try {
-        const { sendPushToUserAndAdmins } = require('./push');
-        await sendPushToUserAndAdmins(order.user, {
-          title: `Order ${status.charAt(0).toUpperCase() + status.slice(1)}`,
-          body: `Your order #${order._id.toString().slice(-6)} is now ${status}.`,
+        const { Subscription } = require('./push');
+        const webpush = require('web-push');
+        const userSubs = await Subscription.find({ user: order.user });
+        let notifTitle = `Order ${status.charAt(0).toUpperCase() + status.slice(1)}`;
+        let notifBody = `Your order #${order._id.toString().slice(-6).toUpperCase()} is now ${status}.`;
+        if (status === 'out_for_delivery') {
+          notifTitle = 'Order Out for Delivery!';
+          notifBody = `Your order #${order._id.toString().slice(-6).toUpperCase()} is out for delivery. Expect it soon!`;
+        }
+        const userPayload = JSON.stringify({
+          title: notifTitle,
+          body: notifBody,
           url: `/orders`
         });
+        for (const sub of userSubs) {
+          try {
+            await webpush.sendNotification(sub, userPayload);
+          } catch (err) {
+            console.error('[Push] Failed to send to user', sub.endpoint, err.message);
+          }
+        }
       } catch (pushErr) {
         console.error('Failed to send push notification:', pushErr);
       }
