@@ -125,7 +125,7 @@ router.post('/', optionalAuth, async (req, res) => {
     // Store notification in DB for user and all admins, and send push
     try {
       const Notification = require('../models/Notification');
-      const { sendPushToUserAndAdmins } = require('../routes/push');
+      const sendPushToUserAndAdmins = require('../routes/push').sendPushToUserAndAdmins;
       console.log('[Order] sendPushToUserAndAdmins loaded:', typeof sendPushToUserAndAdmins);
       const User = require('../models/User');
       const admins = await User.find({ role: 'admin' });

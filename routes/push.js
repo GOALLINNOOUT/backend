@@ -27,7 +27,7 @@ async function sendPushToUserAndAdmins(userId, { title, body, url }) {
   }
   return sent;
 }
-
+module.exports.sendPushToUserAndAdmins = sendPushToUserAndAdmins;
 const express = require('express');
 const router = express.Router();
 const webpush = require('web-push');
@@ -67,6 +67,8 @@ async function subscribe(req, res) {
   }
 }
 router.post('/subscribe', subscribe);
+module.exports = router;
+module.exports.subscribe = subscribe;
 
 // Send push notification to all subscribers (demo)
 router.post('/send', async (req, res) => {
@@ -83,8 +85,4 @@ router.post('/send', async (req, res) => {
   }
 });
 
-module.exports = {
-  router,
-  subscribe,
-  sendPushToUserAndAdmins
-};
+module.exports = router;
