@@ -38,7 +38,8 @@ const io = new Server(server, {
     origin: [
       'http://localhost:5173',
       'https://frontend-pearl-tau-37.vercel.app',
-      'https://jccloset.vercel.app'
+      'https://jccloset.vercel.app',
+      'wss://jcserver.onrender.com'
     ],
     credentials: true
   }
