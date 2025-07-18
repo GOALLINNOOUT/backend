@@ -176,7 +176,7 @@ router.post('/reset-password', async (req, res) => {
     if (password.length < 6) {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
-    user.password = await bcrypt.hash(password, 10);
+    user.password = password; // Let pre-save hook hash it
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();
