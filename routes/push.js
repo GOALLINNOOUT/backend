@@ -37,10 +37,8 @@ async function subscribe(req, res) {
   }
 }
 router.post('/subscribe', subscribe);
-module.exports = {
-  router,
-  subscribe
-};
+module.exports = router;
+module.exports.subscribe = subscribe;
 
 // Send push notification to all subscribers (demo)
 router.post('/send', async (req, res) => {
