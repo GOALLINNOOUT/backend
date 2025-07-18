@@ -122,16 +122,29 @@ router.post('/', optionalAuth, async (req, res) => {
         //   });
         // }
 
-    // Send push notification to user and all admins
+    // Store notification in DB for user and all admins, and send push
     try {
+      const Notification = require('../models/Notification');
       const { sendPushToUserAndAdmins } = require('./push');
+      const User = require('../models/User');
+      const admins = await User.find({ role: 'admin' });
+      const adminIds = admins.map(a => a._id);
+      const notifMsgUser = `Your order has been placed successfully! Order ID: ${order._id}`;
+      const notifMsgAdmin = `New order placed by ${customer.name || customer.email}. Order ID: ${order._id}`;
+      // Create notification for user
+      await Notification.create({ user: userDoc._id, message: notifMsgUser, type: 'order' });
+      // Create notification for each admin
+      for (const adminId of adminIds) {
+        await Notification.create({ user: adminId, message: notifMsgAdmin, type: 'order' });
+      }
+      // Send push notification to user and all admins
       await sendPushToUserAndAdmins(userDoc._id, {
         title: "Order Placed!",
         body: `Order #${order._id.toString().slice(-6).toUpperCase()} placed by ${customer.name || customer.email}`,
         url: `/orders/${order._id}`
       });
     } catch (err) {
-      // Ignore push errors for now
+      // Ignore notification/push errors for now
     }
     res.status(201).json({
       message: 'Order saved',
