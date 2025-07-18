@@ -106,12 +106,14 @@ router.post('/', optionalAuth, async (req, res) => {
         // Emit Socket.IO events for real-time notification
         const io = req.app.get('io');
         if (io) {
+          console.log('[Order] Emitting notification to user room:', `user_${userDoc._id}`);
           io.to(`user_${userDoc._id}`).emit('notification', {
             message: `Your order has been placed successfully! Order ID: ${order._id}`,
             type: 'order',
             createdAt: new Date(),
             read: false
           });
+          console.log('[Order] Emitting notification to admins room: admins');
           io.to('admins').emit('notification', {
             message: `New order placed by ${customer.name || customer.email}. Order ID: ${order._id}`,
             type: 'order',
