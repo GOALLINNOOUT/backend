@@ -126,6 +126,7 @@ router.post('/', optionalAuth, async (req, res) => {
     try {
       const Notification = require('../models/Notification');
       const { sendPushToUserAndAdmins } = require('./push');
+      console.log('[Order] sendPushToUserAndAdmins loaded:', typeof sendPushToUserAndAdmins);
       const User = require('../models/User');
       const admins = await User.find({ role: 'admin' });
       const adminIds = admins.map(a => a._id);
@@ -138,13 +139,15 @@ router.post('/', optionalAuth, async (req, res) => {
         await Notification.create({ user: adminId, message: notifMsgAdmin, type: 'order' });
       }
       // Send push notification to user and all admins
+      console.log('[Order] Calling sendPushToUserAndAdmins...');
       await sendPushToUserAndAdmins(userDoc._id, {
         title: "Order Placed!",
         body: `Order #${order._id.toString().slice(-6).toUpperCase()} placed by ${customer.name || customer.email}`,
         url: `/orders/${order._id}`
       });
+      console.log('[Order] sendPushToUserAndAdmins finished');
     } catch (err) {
-      // Ignore notification/push errors for now
+      console.error('[Order] Notification/push error:', err);
     }
     res.status(201).json({
       message: 'Order saved',
