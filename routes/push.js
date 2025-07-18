@@ -29,6 +29,7 @@ async function sendPushToUserAndAdmins(userId, { title, body, url }) {
 }
 
 const express = require('express');
+const auth = require('../middleware/auth');
 const router = express.Router();
 const webpush = require('web-push');
 const mongoose = require('mongoose');
@@ -66,7 +67,7 @@ async function subscribe(req, res) {
     res.status(500).json({ error: 'Failed to save subscription' });
   }
 }
-router.post('/subscribe', subscribe);
+router.post('/subscribe', auth, subscribe);
 
 // Send push notification to all subscribers (demo)
 router.post('/send', async (req, res) => {
