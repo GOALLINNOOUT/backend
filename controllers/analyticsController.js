@@ -15,7 +15,7 @@ function getDateFilter(query, field = 'createdAt') {
     return { [field]: { $gte: new Date(startDate), $lte: new Date(endDate) } };
   } else {
     const start = new Date();
-    start.setDate(start.getDate() - 29);
+    start.setDate(start.getDate() - 6);
     return { [field]: { $gte: start } };
   }
 }
@@ -333,8 +333,15 @@ exports.getCustomerBehavior = async (req, res) => {
     // Get session logs for non-admin users only
     const liveVisitors = await SessionLog.countDocuments({ startTime: { $gte: tenMinutesAgo }, $or: [ { endTime: null }, { endTime: { $exists: false } } ], user: { $nin: adminUserIds } });
 
-    // Live Carts: unique sessionIds in CartActionLog in last 10 minutes, not admin
-    const liveCartSessions = await CartActionLog.distinct('sessionId', { timestamp: { $gte: tenMinutesAgo }, user: { $nin: adminUserIds } });
+    // Live Carts: unique sessionIds in CartActionLog in last 10 minutes, not admin, and have not checked out
+    // 1. Get sessionIds that have checked out in the last 10 minutes
+    const checkedOutSessions = await CheckoutEventLog.distinct('sessionId', { timestamp: { $gte: tenMinutesAgo } });
+    // 2. Exclude those from live cart sessions
+    const liveCartSessions = await CartActionLog.distinct('sessionId', {
+      timestamp: { $gte: tenMinutesAgo },
+      user: { $nin: adminUserIds },
+      sessionId: { $nin: checkedOutSessions }
+    });
     const liveCarts = liveCartSessions.length;
 
     res.json({
