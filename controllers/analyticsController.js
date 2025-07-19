@@ -500,7 +500,8 @@ exports.getTrafficEngagement = async (req, res) => {
       { $limit: 10 }
     ]);
 
-    // --- OS Usage Aggregation (now only in traffic endpoint) ---
+
+    // --- OS & Browser Usage Aggregation (now only in traffic endpoint) ---
     const users = await User.find({ role: 'user', _id: { $nin: adminUserIds }, email: { $nin: adminEmails } }).lean();
     const allUserIds = users.map(u => u._id.toString());
     const securityDeviceLogs = await SecurityLog.find({
@@ -514,27 +515,8 @@ exports.getTrafficEngagement = async (req, res) => {
       timestamp: { $gte: start, $lte: end },
       email: { $nin: adminEmails }
     }, 'sessionId userAgent email').lean();
-    // Debug: check if sessionId filter is causing zero results
-    const pageViewDeviceLogsNoSession = await PageViewLog.find({
-      userAgent: { $exists: true, $ne: '' },
-      timestamp: { $gte: start, $lte: end },
-      email: { $nin: adminEmails }
-    }, 'sessionId userAgent email').lean();
-    // Debug: check if userAgent filter is causing zero results
-    const pageViewDeviceLogsNoUserAgent = await PageViewLog.find({
-      timestamp: { $gte: start, $lte: end },
-      email: { $nin: adminEmails }
-    }, 'sessionId userAgent email').lean();
-    console.log('PageViewLog entries for OS usage (no userAgent filter):', pageViewDeviceLogsNoUserAgent.length);
-    console.log('PageViewLog entries for OS usage (no sessionId filter):', pageViewDeviceLogsNoSession.length);
-    // Debug: log the PageViewLog query filter and time range
-console.log('PageViewLog OS usage query filter:', {
-  sessionId: { $exists: true, $ne: null },
-  userAgent: { $exists: true, $ne: '' },
-  timestamp: { $gte: start, $lte: end },
-  email: { $nin: adminEmails }
-});
-    console.log('OS usage PageViewLog time range start:', start, 'end:', end);
+
+    // Helper to parse OS from user-agent string
     function parseOS(ua) {
       const s = ua.toLowerCase();
       if (s.includes('android')) return 'Android';
@@ -543,6 +525,19 @@ console.log('PageViewLog OS usage query filter:', {
       if (s.includes('mac os x') || s.includes('macintosh') || s.includes('macos')) return 'MacOS';
       return 'Other';
     }
+    // Helper to parse browser from user-agent string
+    function parseBrowser(ua) {
+      if (!ua) return 'Other';
+      const s = ua.toLowerCase();
+      if (s.includes('edg/')) return 'Edge';
+      if (s.includes('chrome') && !s.includes('edg/')) return 'Chrome';
+      if (s.includes('safari') && !s.includes('chrome')) return 'Safari';
+      if (s.includes('firefox')) return 'Firefox';
+      if (s.includes('opr/') || s.includes('opera')) return 'Opera';
+      return 'Other';
+    }
+
+    // OS aggregation
     const osCounts = { Android: 0, iOS: 0, Windows: 0, MacOS: 0, Other: 0 };
     let totalOSUsages = 0;
     // SecurityLog: device field may contain user-agent after ' | '
@@ -558,16 +553,9 @@ console.log('PageViewLog OS usage query filter:', {
       }
     });
     // PageViewLog: userAgent field
-    // Debug: log number of PageViewLog entries and a sample
-    console.log('PageViewLog entries for OS usage:', pageViewDeviceLogs.length);
-    if (pageViewDeviceLogs.length > 0) {
-      console.log('Sample PageViewLog entry:', pageViewDeviceLogs[0]);
-    }
     pageViewDeviceLogs.forEach(log => {
       if (log.userAgent) {
         const os = parseOS(log.userAgent);
-        // Debug: log user agent and detected OS
-        console.log('UserAgent:', log.userAgent, 'Detected OS:', os);
         osCounts[os] = (osCounts[os] || 0) + 1;
         totalOSUsages++;
       }
@@ -578,16 +566,27 @@ console.log('PageViewLog OS usage query filter:', {
     }));
     oses.sort((a, b) => b.percent - a.percent);
 
+    // Browser aggregation
+    const browserCounts = {};
+    pageViewDeviceLogs.forEach(log => {
+      const browser = parseBrowser(log.userAgent);
+      browserCounts[browser] = (browserCounts[browser] || 0) + 1;
+    });
+    const browsers = Object.entries(browserCounts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+
     res.json({
       visitsTrends,
       avgSessionDuration,
       bounceRate,
       topLandingPages: firstPages,
-      topReferrers, // <-- new field
-      topExitPages: lastPages, // <-- new field
-      pageViewsPerSession: pageViewsPerSessionAgg, // <-- new field
-      topMostViewedPages: topMostViewedPagesAgg, // <-- new field
-      oses
+      topReferrers,
+      topExitPages: lastPages,
+      pageViewsPerSession: pageViewsPerSessionAgg,
+      topMostViewedPages: topMostViewedPagesAgg,
+      oses,
+      browsers
     });
   } catch (err) {
     console.error(err);
