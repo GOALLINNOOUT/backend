@@ -227,7 +227,7 @@ router.patch('/:id', auth, requireAdmin, async (req, res) => {
       return res.status(404).json({ error: 'Order not found' });
     }
     await logAdminAction({ req, action: `Updated order status: ${order._id} to ${status}` });
-    // Send status update email and push notification to customer and admins
+    // Send status update email and push notification to customer, and create Notification for user and admins
     if (['shipped', 'delivered', 'cancelled', 'out_for_delivery'].includes(status)) {
       let emailSubject = `Your JC's Closet Order is now ${status.charAt(0).toUpperCase() + status.slice(1)}`;
       let emailHtml = orderStatusUpdateTemplate(order, status);
@@ -242,9 +242,23 @@ router.patch('/:id', auth, requireAdmin, async (req, res) => {
         .then(() => console.log(`Status email sent to ${order.customer.email} for order ${order._id}`))
         .catch((err) => console.error('Failed to send status email:', err));
 
-      // Send push notification to user only
+      // Create Notification for user and all admins
       try {
-        const { Subscription } = require('./push');
+        const Notification = require('../models/Notification');
+        const User = require('../models/User');
+        const admins = await User.find({ role: 'admin' });
+        const adminIds = admins.map(a => a._id);
+        let notifMsgUser = `Your order #${order._id.toString().slice(-6).toUpperCase()} status updated to ${status}`;
+        let notifMsgAdmin = `Order #${order._id.toString().slice(-6).toUpperCase()} for ${order.customer.name || order.customer.email} status updated to ${status}`;
+        // Create notification for user
+        await Notification.create({ user: order.user, message: notifMsgUser, type: 'order_status' });
+        // Create notification for each admin
+        for (const adminId of adminIds) {
+          await Notification.create({ user: adminId, message: notifMsgAdmin, type: 'order_status' });
+        }
+
+        // Send push notification to user only
+        const Subscription = require('../routes/push').Subscription || require('mongoose').model('Subscription');
         const webpush = require('web-push');
         const userSubs = await Subscription.find({ user: order.user });
         let notifTitle = `Order ${status.charAt(0).toUpperCase() + status.slice(1)}`;
@@ -266,7 +280,7 @@ router.patch('/:id', auth, requireAdmin, async (req, res) => {
           }
         }
       } catch (pushErr) {
-        console.error('Failed to send push notification:', pushErr);
+        console.error('Failed to send notification or push:', pushErr);
       }
     }
     res.json(order);
