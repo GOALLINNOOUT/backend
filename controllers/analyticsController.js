@@ -529,11 +529,16 @@ exports.getTrafficEngagement = async (req, res) => {
     function parseBrowser(ua) {
       if (!ua) return 'Other';
       const s = ua.toLowerCase();
+      if (s.includes('brave')) return 'Brave';
+      if (s.includes('samsungbrowser')) return 'Samsung Internet';
+      if (s.includes('ucbrowser')) return 'UC Browser';
       if (s.includes('edg/')) return 'Edge';
-      if (s.includes('chrome') && !s.includes('edg/')) return 'Chrome';
+      if (s.includes('chrome') && !s.includes('edg/') && !s.includes('brave') && !s.includes('samsungbrowser') && !s.includes('ucbrowser')) return 'Chrome';
       if (s.includes('safari') && !s.includes('chrome')) return 'Safari';
       if (s.includes('firefox')) return 'Firefox';
       if (s.includes('opr/') || s.includes('opera')) return 'Opera';
+      if (s.includes('msie') || s.includes('trident')) return 'Internet Explorer';
+      if (s.includes('phoenix')) return 'Phoenix Browser';
       return 'Other';
     }
 
