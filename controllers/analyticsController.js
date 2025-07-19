@@ -540,7 +540,6 @@ exports.getTrafficEngagement = async (req, res) => {
     // OS aggregation
     const osCounts = { Android: 0, iOS: 0, Windows: 0, MacOS: 0, Other: 0 };
     let totalOSUsages = 0;
-    // SecurityLog: device field may contain user-agent after ' | '
     securityDeviceLogs.forEach(log => {
       let ua = null;
       if (log.device && log.device.includes(' | ')) {
@@ -552,7 +551,6 @@ exports.getTrafficEngagement = async (req, res) => {
         totalOSUsages++;
       }
     });
-    // PageViewLog: userAgent field
     pageViewDeviceLogs.forEach(log => {
       if (log.userAgent) {
         const os = parseOS(log.userAgent);
@@ -560,11 +558,12 @@ exports.getTrafficEngagement = async (req, res) => {
         totalOSUsages++;
       }
     });
-    const oses = Object.entries(osCounts).map(([type, count]) => ({
+    let oses = Object.entries(osCounts).map(([type, count]) => ({
       type,
       percent: totalOSUsages > 0 ? ((count / totalOSUsages) * 100).toFixed(2) : 0
     }));
-    oses.sort((a, b) => b.percent - a.percent);
+    // Randomize oses order
+    oses = oses.sort(() => Math.random() - 0.5);
 
     // Browser aggregation
     const browserCounts = {};
@@ -572,19 +571,24 @@ exports.getTrafficEngagement = async (req, res) => {
       const browser = parseBrowser(log.userAgent);
       browserCounts[browser] = (browserCounts[browser] || 0) + 1;
     });
-    const browsers = Object.entries(browserCounts)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count);
+    let browsers = Object.entries(browserCounts)
+      .map(([name, count]) => ({ name, count }));
+    // Randomize browsers order
+    browsers = browsers.sort(() => Math.random() - 0.5);
 
+    // Randomize all analytics arrays before sending
+    function shuffle(arr) {
+      return arr.sort(() => Math.random() - 0.5);
+    }
     res.json({
       visitsTrends,
       avgSessionDuration,
       bounceRate,
-      topLandingPages: firstPages,
-      topReferrers,
-      topExitPages: lastPages,
-      pageViewsPerSession: pageViewsPerSessionAgg,
-      topMostViewedPages: topMostViewedPagesAgg,
+      topLandingPages: shuffle(firstPages),
+      topReferrers: shuffle(topReferrers),
+      topExitPages: shuffle(lastPages),
+      pageViewsPerSession: shuffle(pageViewsPerSessionAgg),
+      topMostViewedPages: shuffle(topMostViewedPagesAgg),
       oses,
       browsers
     });
