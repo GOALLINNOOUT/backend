@@ -251,10 +251,10 @@ router.patch('/:id', auth, requireAdmin, async (req, res) => {
         let notifMsgUser = `Your order #${order._id.toString().slice(-6).toUpperCase()} status updated to ${status}`;
         let notifMsgAdmin = `Order #${order._id.toString().slice(-6).toUpperCase()} for ${order.customer.name || order.customer.email} status updated to ${status}`;
         // Create notification for user
-        await Notification.create({ user: order.user, message: notifMsgUser, type: 'order_status' });
+        await Notification.create({ user: order.user, message: notifMsgUser, type: 'order' });
         // Create notification for each admin
         for (const adminId of adminIds) {
-          await Notification.create({ user: adminId, message: notifMsgAdmin, type: 'order_status' });
+          await Notification.create({ user: adminId, message: notifMsgAdmin, type: 'order' });
         }
 
         // Send push notification to user only
