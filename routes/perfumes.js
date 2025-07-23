@@ -81,40 +81,37 @@ router.get('/suggestions', async (req, res) => {
   try {
     const query = req.query.query ? req.query.query.toLowerCase() : '';
     if (!query) return res.json([]);
-    // Search names and descriptions for suggestions
-    const perfumes = await Perfume.find({
-      $or: [
-        { name: { $regex: query, $options: 'i' } },
-        { description: { $regex: query, $options: 'i' } }
-      ]
-    }).limit(5);
-    // Collect unique words from names first, then descriptions, with fuzzy match and scoring
+    // Fetch more perfumes for broader matching (limit 100 for performance)
+    const perfumes = await Perfume.find({}, { name: 1, description: 1 }).limit(100);
+    // Collect unique words and full names for fuzzy matching
     const nameWords = [];
     const descWords = [];
     const nameScores = {};
     const descScores = {};
+    const fullNames = [];
+    const fullNameScores = {};
     const isFuzzyMatch = (word, q) => {
       const w = word.toLowerCase();
-      if (w.includes(q)) return true;
+      if (w.includes(q) || q.includes(w)) return true;
       // Fuzzy: allow Levenshtein distance <= 2 for short queries, <= 3 for longer
       const maxDist = q.length <= 4 ? 1 : q.length <= 6 ? 2 : 3;
       return levenshtein(w, q) <= maxDist;
     };
-    // Collect name-based suggestions with scores
+    // Collect name-based suggestions with scores (words)
     perfumes.forEach(p => {
       p.name.split(/\s+/).forEach(w => {
         const lw = w.toLowerCase();
         if (isFuzzyMatch(lw, query) && !nameWords.includes(w)) {
           nameWords.push(w);
-          // Score: 0 if startsWith, 1 if includes, else Levenshtein
           if (lw.startsWith(query)) nameScores[w] = 0;
           else if (lw.includes(query)) nameScores[w] = 1;
           else nameScores[w] = levenshtein(lw, query) + 2;
         }
       });
     });
-    // Collect description-based suggestions with scores, skipping any already in nameWords
+    // Collect description-based suggestions with scores (words)
     perfumes.forEach(p => {
+      if (!p.description) return;
       p.description.split(/\s+/).forEach(w => {
         const lw = w.toLowerCase();
         if (isFuzzyMatch(lw, query) && !nameWords.includes(w) && !descWords.includes(w)) {
@@ -125,11 +122,22 @@ router.get('/suggestions', async (req, res) => {
         }
       });
     });
+    // Collect full product names as suggestions (very tolerant)
+    perfumes.forEach(p => {
+      const lname = p.name.toLowerCase();
+      if (isFuzzyMatch(lname, query) && !fullNames.includes(p.name)) {
+        fullNames.push(p.name);
+        if (lname.startsWith(query)) fullNameScores[p.name] = 0;
+        else if (lname.includes(query)) fullNameScores[p.name] = 1;
+        else fullNameScores[p.name] = levenshtein(lname, query) + 2;
+      }
+    });
     // Sort by score (lower is better)
     const sortedNameWords = nameWords.sort((a, b) => nameScores[a] - nameScores[b]);
     const sortedDescWords = descWords.sort((a, b) => descScores[a] - descScores[b]);
-    // Return up to 10 suggestions, prioritizing name/title words, all sorted by best match
-    res.json([...sortedNameWords, ...sortedDescWords].slice(0, 10));
+    const sortedFullNames = fullNames.sort((a, b) => fullNameScores[a] - fullNameScores[b]);
+    // Return up to 10 suggestions, prioritizing full product names, then name/title words, then description words
+    res.json([...sortedFullNames, ...sortedNameWords, ...sortedDescWords].slice(0, 10));
   } catch (err) {
     res.status(500).json({ error: 'Server error', details: err.message, stack: err.stack });
   }
