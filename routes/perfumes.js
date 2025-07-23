@@ -137,7 +137,7 @@ router.get('/suggestions', async (req, res) => {
     const sortedDescWords = descWords.sort((a, b) => descScores[a] - descScores[b]);
     const sortedFullNames = fullNames.sort((a, b) => fullNameScores[a] - fullNameScores[b]);
     // Return up to 10 suggestions, prioritizing full product names, then name/title words, then description words
-    res.json([...sortedFullNames, ...sortedNameWords, ...sortedDescWords].slice(0, 10));
+    res.json([...sortedFullNames, ...sortedNameWords, ...sortedDescWords].slice(0, 5));
   } catch (err) {
     res.status(500).json({ error: 'Server error', details: err.message, stack: err.stack });
   }
