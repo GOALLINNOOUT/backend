@@ -1,12 +1,15 @@
 // Returns the number of active visitors for each minute in the last N minutes (default 15)
+const { DateTime } = require('luxon');
 exports.getLiveVisitorsTrend = async (req, res) => {
   try {
     const minutes = parseInt(req.query.minutes, 10) || 15;
-    const now = new Date();
+    // Use Africa/Lagos timezone for all calculations and labels
+    const TZ = 'Africa/Lagos';
+    const now = DateTime.now().setZone(TZ);
     const adminUsers = await User.find({ role: 'admin' }, '_id');
     const adminUserIds = adminUsers.map(u => u._id.toString());
-    // Get all sessions started in the last N minutes (not ended or ended after the minute)
-    const startWindow = new Date(now.getTime() - minutes * 60 * 1000);
+    // Calculate start of window in local time, but store as JS Date (UTC)
+    const startWindow = now.minus({ minutes }).toJSDate();
     // Get all sessions that started within the window, or started before but ended after window start
     const sessions = await SessionLog.find({
       $or: [
@@ -18,15 +21,15 @@ exports.getLiveVisitorsTrend = async (req, res) => {
     // For each minute, count sessions that are active at that minute
     const trend = [];
     for (let i = minutes - 1; i >= 0; i--) {
-      const minuteStart = new Date(now.getTime() - i * 60 * 1000);
-      const minuteEnd = new Date(minuteStart.getTime() + 60 * 1000);
+      const minuteStart = now.minus({ minutes: i });
+      const minuteEnd = minuteStart.plus({ minutes: 1 });
       const count = sessions.filter(s => {
-        const st = new Date(s.startTime);
-        const et = s.endTime ? new Date(s.endTime) : null;
+        const st = DateTime.fromJSDate(new Date(s.startTime), { zone: TZ });
+        const et = s.endTime ? DateTime.fromJSDate(new Date(s.endTime), { zone: TZ }) : null;
         return st <= minuteEnd && (!et || et > minuteStart);
       }).length;
-      // Format label as HH:mm
-      const label = minuteStart.toTimeString().slice(0,5);
+      // Format label as HH:mm in local time
+      const label = minuteStart.toFormat('HH:mm');
       trend.push({ minute: label, count });
     }
     res.json({ trend });
