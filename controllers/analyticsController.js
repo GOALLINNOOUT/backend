@@ -1,5 +1,76 @@
-// Returns the number of active visitors for each minute in the last N minutes (default 15)
+// =========================
+// User Flow / Path Analysis
+// =========================
+// Returns the most common navigation paths (for Sankey diagrams, etc.)
+exports.getUserFlow = async (req, res) => {
+  try {
+    // Optional: segmentation filters (device, state, referrer, campaign, etc.)
+    const match = {};
+    if (req.query.device) match.device = req.query.device;
+    if (req.query.state) match.state = req.query.state;
+    if (req.query.referrer) match.referrer = req.query.referrer;
+    if (req.query.campaign) match.campaign = req.query.campaign;
+
+    // Group by sessionId, sort by timestamp, build navigation paths
+    const sessions = await PageViewLog.aggregate([
+      { $match: match },
+      { $sort: { sessionId: 1, timestamp: 1 } },
+      { $group: { _id: '$sessionId', path: { $push: '$page' } } }
+    ]);
+
+    // Count unique paths
+    const pathCounts = {};
+    sessions.forEach(s => {
+      // Remove consecutive duplicates for cleaner paths
+      const deduped = s.path.filter((p, i, arr) => i === 0 || p !== arr[i - 1]);
+      const path = deduped.join(' → ');
+      pathCounts[path] = (pathCounts[path] || 0) + 1;
+    });
+
+    // Convert to array and sort by count
+    const topPaths = Object.entries(pathCounts)
+      .map(([path, count]) => ({ path, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 20);
+
+    res.json({ topPaths });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch user flow' });
+  }
+};
+
+// =========================
+// Analytics Controller
+// =========================
+
 const { DateTime } = require('luxon');
+const Order = require('../models/Order');
+const Perfume = require('../models/Perfume');
+const User = require('../models/User');
+const mongoose = require('mongoose');
+const SecurityLog = require('../models/SecurityLog');
+const SessionLog = require('../models/SessionLog');
+const PageViewLog = require('../models/PageViewLog');
+const CartActionLog = require('../models/CartActionLog');
+const CheckoutEventLog = require('../models/CheckoutEventLog');
+
+// Helper to get date filter from query
+function getDateFilter(query, field = 'createdAt') {
+  let { startDate, endDate } = query;
+  if (startDate && endDate) {
+    return { [field]: { $gte: new Date(startDate), $lte: new Date(endDate) } };
+  } else {
+    const start = new Date();
+    start.setDate(start.getDate() - 6);
+    return { [field]: { $gte: start } };
+  }
+}
+
+// =========================
+// Live Visitors Trend
+// =========================
+// Returns the number of active visitors for each minute in the last N minutes (default 15)
 exports.getLiveVisitorsTrend = async (req, res) => {
   try {
     const minutes = parseInt(req.query.minutes, 10) || 15;
@@ -24,13 +95,21 @@ exports.getLiveVisitorsTrend = async (req, res) => {
         { $group: { _id: '$sessionId', lastActivity: { $max: '$createdAt' } } }
       ]),
       SessionLog.aggregate([
-        { $match: { $or: [ { startTime: { $gte: startWindow } }, { endTime: { $gte: startWindow } } ], user: { $nin: adminUserIds } } },
-        { $project: {
-          _id: '$sessionId',
-          lastActivity: {
-            $cond: [ { $ifNull: ['$endTime', false] }, '$endTime', '$startTime' ]
+        { $match: {
+            $or: [
+              { startTime: { $gte: startWindow } },
+              { endTime: { $gte: startWindow } }
+            ],
+            user: { $nin: adminUserIds }
           }
-        } }
+        },
+        { $project: {
+            _id: '$sessionId',
+            lastActivity: {
+              $cond: [ { $ifNull: ['$endTime', false] }, '$endTime', '$startTime' ]
+            }
+          }
+        }
       ])
     ]);
 
@@ -68,30 +147,10 @@ exports.getLiveVisitorsTrend = async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch live visitors trend' });
   }
 };
-const Order = require('../models/Order');
-const Perfume = require('../models/Perfume');
-const User = require('../models/User');
-const mongoose = require('mongoose');
-const SecurityLog = require('../models/SecurityLog');
-const SessionLog = require('../models/SessionLog');
-const PageViewLog = require('../models/PageViewLog');
-const CartActionLog = require('../models/CartActionLog');
-const CheckoutEventLog = require('../models/CheckoutEventLog');
 
-// Helper to get date filter from query
-function getDateFilter(query, field = 'createdAt') {
-  let { startDate, endDate } = query;
-  if (startDate && endDate) {
-    return { [field]: { $gte: new Date(startDate), $lte: new Date(endDate) } };
-  } else {
-    const start = new Date();
-    start.setDate(start.getDate() - 6);
-    return { [field]: { $gte: start } };
-  }
-}
-
-// Analytics Controller: Handles all business logic for admin analytics endpoints
-// Each function should aggregate and return relevant analytics data
+// =========================
+// Analytics Endpoints
+// =========================
 
 exports.getSalesAnalytics = async (req, res) => {
   try {
