@@ -9,31 +9,29 @@ exports.getLiveVisitorsTrend = async (req, res) => {
     const adminUserIds = adminUsers.map(u => u._id.toString());
     const startWindow = now.minus({ minutes }).toJSDate();
 
-    // Get all last activities (page view, cart action, order, session) for non-admin users in the window
-    // 1. PageViewLog
-    const pageViewActs = await PageViewLog.aggregate([
-      { $match: { timestamp: { $gte: startWindow }, user: { $nin: adminUserIds } } },
-      { $group: { _id: '$sessionId', lastActivity: { $max: '$timestamp' } } }
-    ]);
-    // 2. CartActionLog
-    const cartActs = await CartActionLog.aggregate([
-      { $match: { timestamp: { $gte: startWindow }, user: { $nin: adminUserIds } } },
-      { $group: { _id: '$sessionId', lastActivity: { $max: '$timestamp' } } }
-    ]);
-    // 3. Orders (createdAt)
-    const orderActs = await Order.aggregate([
-      { $match: { createdAt: { $gte: startWindow }, 'customer._id': { $nin: adminUserIds } } },
-      { $group: { _id: '$sessionId', lastActivity: { $max: '$createdAt' } } }
-    ]);
-    // 4. SessionLog (startTime, endTime)
-    const sessionActs = await SessionLog.aggregate([
-      { $match: { $or: [ { startTime: { $gte: startWindow } }, { endTime: { $gte: startWindow } } ], user: { $nin: adminUserIds } } },
-      { $project: {
-        _id: '$sessionId',
-        lastActivity: {
-          $cond: [ { $ifNull: ['$endTime', false] }, '$endTime', '$startTime' ]
-        }
-      } }
+    // Parallelize all last activity queries
+    const [pageViewActs, cartActs, orderActs, sessionActs] = await Promise.all([
+      PageViewLog.aggregate([
+        { $match: { timestamp: { $gte: startWindow }, user: { $nin: adminUserIds } } },
+        { $group: { _id: '$sessionId', lastActivity: { $max: '$timestamp' } } }
+      ]),
+      CartActionLog.aggregate([
+        { $match: { timestamp: { $gte: startWindow }, user: { $nin: adminUserIds } } },
+        { $group: { _id: '$sessionId', lastActivity: { $max: '$timestamp' } } }
+      ]),
+      Order.aggregate([
+        { $match: { createdAt: { $gte: startWindow }, 'customer._id': { $nin: adminUserIds } } },
+        { $group: { _id: '$sessionId', lastActivity: { $max: '$createdAt' } } }
+      ]),
+      SessionLog.aggregate([
+        { $match: { $or: [ { startTime: { $gte: startWindow } }, { endTime: { $gte: startWindow } } ], user: { $nin: adminUserIds } } },
+        { $project: {
+          _id: '$sessionId',
+          lastActivity: {
+            $cond: [ { $ifNull: ['$endTime', false] }, '$endTime', '$startTime' ]
+          }
+        } }
+      ])
     ]);
 
     // Merge all activities by sessionId, keep the latest timestamp per session
@@ -252,10 +250,12 @@ exports.getCustomerBehavior = async (req, res) => {
       startDate = new Date();
       startDate.setDate(startDate.getDate() - 29);
     }
-    // Only include orders from non-admin users
-    const orders = await Order.find({ ...dateFilter, 'customer._id': { $nin: adminUserIds }, 'customer.email': { $nin: adminEmails } }).lean();
-    const allOrders = await Order.find({ 'customer._id': { $nin: adminUserIds }, 'customer.email': { $nin: adminEmails } }).lean();
-    const users = await User.find({ role: 'user', _id: { $nin: adminUserIds }, email: { $nin: adminEmails } }).lean();
+    // Parallelize all main DB queries
+    const [orders, allOrders, users] = await Promise.all([
+      Order.find({ ...dateFilter, 'customer._id': { $nin: adminUserIds }, 'customer.email': { $nin: adminEmails } }).lean(),
+      Order.find({ 'customer._id': { $nin: adminUserIds }, 'customer.email': { $nin: adminEmails } }).lean(),
+      User.find({ role: 'user', _id: { $nin: adminUserIds }, email: { $nin: adminEmails } }).lean()
+    ]);
 
     // Map user order counts and spend
     const userOrderCounts = {};
@@ -305,19 +305,20 @@ exports.getCustomerBehavior = async (req, res) => {
 
     // Devices Used (aggregate device info from both SecurityLog and PageViewLog for all non-admin users in the date range)
     const allUserIds = users.map(u => u._id.toString());
-    // Get device logs from SecurityLog
-    const securityDeviceLogs = await SecurityLog.find({
-      user: { $in: allUserIds.map(id => new mongoose.Types.ObjectId(id)) },
-      device: { $exists: true, $ne: null },
-      timestamp: { $gte: startDate }
-    }).lean();
-    // Get device info from PageViewLog
-    const pageViewDeviceLogs = await PageViewLog.find({
-      sessionId: { $exists: true, $ne: null },
-      userAgent: { $exists: true, $ne: '' },
-      timestamp: { $gte: startDate },
-      email: { $nin: adminEmails }
-    }, 'sessionId userAgent email').lean();
+    // Parallelize device log queries
+    const [securityDeviceLogs, pageViewDeviceLogs] = await Promise.all([
+      SecurityLog.find({
+        user: { $in: allUserIds.map(id => new mongoose.Types.ObjectId(id)) },
+        device: { $exists: true, $ne: null },
+        timestamp: { $gte: startDate }
+      }).lean(),
+      PageViewLog.find({
+        sessionId: { $exists: true, $ne: null },
+        userAgent: { $exists: true, $ne: '' },
+        timestamp: { $gte: startDate },
+        email: { $nin: adminEmails }
+      }, 'sessionId userAgent email').lean()
+    ]);
     // Helper to parse device type from user-agent
     function parseDeviceType(ua) {
       if (!ua) return 'unknown';

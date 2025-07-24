@@ -11,5 +11,9 @@ const PageViewLogSchema = new mongoose.Schema({
   referrer: { type: String, default: '' }, // Added referrer field
   timestamp: { type: Date, default: Date.now }
 });
+PageViewLogSchema.index({ timestamp: 1 });
+PageViewLogSchema.index({ user: 1 });
+PageViewLogSchema.index({ email: 1 });
+PageViewLogSchema.index({ sessionId: 1 });
 
 module.exports = mongoose.model('PageViewLog', PageViewLogSchema);

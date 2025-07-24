@@ -10,5 +10,9 @@ const SessionLogSchema = new mongoose.Schema({
   lastActivity: { type: Date }, // Track last activity for session expiration
   createdAt: { type: Date, default: Date.now }
 });
+SessionLogSchema.index({ startTime: 1 });
+SessionLogSchema.index({ endTime: 1 });
+SessionLogSchema.index({ user: 1 });
+SessionLogSchema.index({ sessionId: 1 });
 
 module.exports = mongoose.model('SessionLog', SessionLogSchema);

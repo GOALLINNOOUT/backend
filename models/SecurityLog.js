@@ -23,4 +23,8 @@ const SecurityLogSchema = new mongoose.Schema({
   }
 });
 
+SecurityLogSchema.index({ user: 1 });
+SecurityLogSchema.index({ device: 1 });
+SecurityLogSchema.index({ timestamp: 1 });
+
 module.exports = mongoose.model('SecurityLog', SecurityLogSchema);

@@ -37,4 +37,10 @@ const OrderSchema = new mongoose.Schema({
   sessionId: { type: String }
 });
 
+OrderSchema.index({ createdAt: 1 });
+OrderSchema.index({ 'customer._id': 1 });
+OrderSchema.index({ 'customer.email': 1 });
+OrderSchema.index({ status: 1 });
+OrderSchema.index({ sessionId: 1 });
+
 module.exports = mongoose.model('Order', OrderSchema);
