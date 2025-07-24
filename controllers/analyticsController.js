@@ -3,32 +3,64 @@ const { DateTime } = require('luxon');
 exports.getLiveVisitorsTrend = async (req, res) => {
   try {
     const minutes = parseInt(req.query.minutes, 10) || 15;
-    // Use Africa/Lagos timezone for all calculations and labels
     const TZ = 'Africa/Lagos';
     const now = DateTime.now().setZone(TZ);
     const adminUsers = await User.find({ role: 'admin' }, '_id');
     const adminUserIds = adminUsers.map(u => u._id.toString());
-    // Calculate start of window in local time, but store as JS Date (UTC)
     const startWindow = now.minus({ minutes }).toJSDate();
-    // Get all sessions that started within the window, or started before but ended after window start
-    const sessions = await SessionLog.find({
-      $or: [
-        { startTime: { $gte: startWindow } },
-        { $and: [ { startTime: { $lt: startWindow } }, { $or: [ { endTime: null }, { endTime: { $gte: startWindow } } ] } ] }
-      ],
-      user: { $nin: adminUserIds }
-    }, 'startTime endTime').lean();
-    // For each minute, count sessions that are active at that minute
+
+    // Get all last activities (page view, cart action, order, session) for non-admin users in the window
+    // 1. PageViewLog
+    const pageViewActs = await PageViewLog.aggregate([
+      { $match: { timestamp: { $gte: startWindow }, user: { $nin: adminUserIds } } },
+      { $group: { _id: '$sessionId', lastActivity: { $max: '$timestamp' } } }
+    ]);
+    // 2. CartActionLog
+    const cartActs = await CartActionLog.aggregate([
+      { $match: { timestamp: { $gte: startWindow }, user: { $nin: adminUserIds } } },
+      { $group: { _id: '$sessionId', lastActivity: { $max: '$timestamp' } } }
+    ]);
+    // 3. Orders (createdAt)
+    const orderActs = await Order.aggregate([
+      { $match: { createdAt: { $gte: startWindow }, 'customer._id': { $nin: adminUserIds } } },
+      { $group: { _id: '$sessionId', lastActivity: { $max: '$createdAt' } } }
+    ]);
+    // 4. SessionLog (startTime, endTime)
+    const sessionActs = await SessionLog.aggregate([
+      { $match: { $or: [ { startTime: { $gte: startWindow } }, { endTime: { $gte: startWindow } } ], user: { $nin: adminUserIds } } },
+      { $project: {
+        _id: '$sessionId',
+        lastActivity: {
+          $cond: [ { $ifNull: ['$endTime', false] }, '$endTime', '$startTime' ]
+        }
+      } }
+    ]);
+
+    // Merge all activities by sessionId, keep the latest timestamp per session
+    const activityMap = new Map();
+    function addActs(arr) {
+      arr.forEach(a => {
+        if (!a._id) return;
+        const prev = activityMap.get(a._id);
+        if (!prev || new Date(a.lastActivity) > new Date(prev)) {
+          activityMap.set(a._id, a.lastActivity);
+        }
+      });
+    }
+    addActs(pageViewActs);
+    addActs(cartActs);
+    addActs(orderActs);
+    addActs(sessionActs);
+
+    // For each minute, count sessions with last activity in that minute
     const trend = [];
     for (let i = minutes - 1; i >= 0; i--) {
       const minuteStart = now.minus({ minutes: i });
       const minuteEnd = minuteStart.plus({ minutes: 1 });
-      const count = sessions.filter(s => {
-        const st = DateTime.fromJSDate(new Date(s.startTime), { zone: TZ });
-        const et = s.endTime ? DateTime.fromJSDate(new Date(s.endTime), { zone: TZ }) : null;
-        return st <= minuteEnd && (!et || et > minuteStart);
+      const count = Array.from(activityMap.values()).filter(ts => {
+        const t = DateTime.fromJSDate(new Date(ts), { zone: TZ });
+        return t >= minuteStart && t < minuteEnd;
       }).length;
-      // Format label as HH:mm in local time
       const label = minuteStart.toFormat('HH:mm');
       trend.push({ minute: label, count });
     }
