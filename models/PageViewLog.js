@@ -14,6 +14,5 @@ const PageViewLogSchema = new mongoose.Schema({
 PageViewLogSchema.index({ timestamp: 1 });
 PageViewLogSchema.index({ user: 1 });
 PageViewLogSchema.index({ email: 1 });
-PageViewLogSchema.index({ sessionId: 1 });
 
 module.exports = mongoose.model('PageViewLog', PageViewLogSchema);

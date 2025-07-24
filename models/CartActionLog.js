@@ -8,7 +8,5 @@ const CartActionLogSchema = new mongoose.Schema({
   timestamp: { type: Date, default: Date.now, index: true }
 });
 
-CartActionLogSchema.index({ timestamp: 1 });
-CartActionLogSchema.index({ sessionId: 1 });
 
 module.exports = mongoose.model('CartActionLog', CartActionLogSchema);
