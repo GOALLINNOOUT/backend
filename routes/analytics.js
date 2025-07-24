@@ -15,4 +15,6 @@ router.get('/marketing', auth, requireAdmin, analyticsController.getMarketingPer
 router.get('/page-visits-trend', auth, requireAdmin, analyticsController.getPageVisitsTrend);
 // Funnel and Cart Analytics
 router.get('/funnel', auth, requireAdmin, analyticsController.getFunnelAnalytics);
+// Live Visitors Trend (last N minutes)
+router.get('/live-visitors-trend', auth, requireAdmin, analyticsController.getLiveVisitorsTrend);
 module.exports = router;

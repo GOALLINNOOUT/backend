@@ -1,3 +1,40 @@
+// Returns the number of active visitors for each minute in the last N minutes (default 15)
+exports.getLiveVisitorsTrend = async (req, res) => {
+  try {
+    const minutes = parseInt(req.query.minutes, 10) || 15;
+    const now = new Date();
+    const adminUsers = await User.find({ role: 'admin' }, '_id');
+    const adminUserIds = adminUsers.map(u => u._id.toString());
+    // Get all sessions started in the last N minutes (not ended or ended after the minute)
+    const startWindow = new Date(now.getTime() - minutes * 60 * 1000);
+    // Get all sessions that started within the window, or started before but ended after window start
+    const sessions = await SessionLog.find({
+      $or: [
+        { startTime: { $gte: startWindow } },
+        { $and: [ { startTime: { $lt: startWindow } }, { $or: [ { endTime: null }, { endTime: { $gte: startWindow } } ] } ] }
+      ],
+      user: { $nin: adminUserIds }
+    }, 'startTime endTime').lean();
+    // For each minute, count sessions that are active at that minute
+    const trend = [];
+    for (let i = minutes - 1; i >= 0; i--) {
+      const minuteStart = new Date(now.getTime() - i * 60 * 1000);
+      const minuteEnd = new Date(minuteStart.getTime() + 60 * 1000);
+      const count = sessions.filter(s => {
+        const st = new Date(s.startTime);
+        const et = s.endTime ? new Date(s.endTime) : null;
+        return st <= minuteEnd && (!et || et > minuteStart);
+      }).length;
+      // Format label as HH:mm
+      const label = minuteStart.toTimeString().slice(0,5);
+      trend.push({ minute: label, count });
+    }
+    res.json({ trend });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch live visitors trend' });
+  }
+};
 const Order = require('../models/Order');
 const Perfume = require('../models/Perfume');
 const User = require('../models/User');
