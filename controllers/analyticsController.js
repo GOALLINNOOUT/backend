@@ -45,7 +45,7 @@ exports.getColorModeUsage = async (req, res) => {
     const adminUserIds = adminUsers.map(u => u._id.toString());
     // Only count users with a colorMode set
     const usage = await User.aggregate([
-      { $match: { _id: { $nin: adminUserIds.map(id => mongoose.Types.ObjectId(id)) }, colorMode: { $in: ['light', 'dark'] } } },
+      { $match: { _id: { $nin: adminUserIds.map(id => new mongoose.Types.ObjectId(id)) }, colorMode: { $in: ['light', 'dark'] } } },
       { $group: { _id: '$colorMode', count: { $sum: 1 } } },
       { $project: { colorMode: '$_id', count: 1, _id: 0 } }
     ]);
