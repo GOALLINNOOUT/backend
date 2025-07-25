@@ -2,17 +2,25 @@
 exports.postColorMode = async (req, res) => {
   try {
     const { colorMode } = req.body;
-    const userId = req.headers['x-session-id'] || req.body.sessionId;
-    if (!userId || !colorMode) {
+    // Accept sessionId from x-session-id header or sessionId in body
+    const sessionId = req.headers['x-session-id'] || req.body.sessionId;
+    if (!sessionId || !colorMode) {
       return res.status(400).json({ error: 'Missing sessionId or colorMode' });
     }
     // Only allow valid color modes
     if (!['light', 'dark'].includes(colorMode)) {
       return res.status(400).json({ error: 'Invalid colorMode' });
     }
+    const SessionLog = require('../models/SessionLog');
     const User = require('../models/User');
+    // Find the session and get the user
+    const session = await SessionLog.findOne({ sessionId });
+    if (!session || !session.user) {
+      return res.status(404).json({ error: 'Session or user not found' });
+    }
+    // Update the user's colorMode
     const user = await User.findByIdAndUpdate(
-      userId,
+      session.user,
       { colorMode },
       { new: true }
     );
@@ -31,12 +39,13 @@ exports.postColorMode = async (req, res) => {
 exports.getColorModeUsage = async (req, res) => {
   try {
     const User = require('../models/User');
+    const mongoose = require('mongoose');
     // Exclude admin users
     const adminUsers = await User.find({ role: 'admin' }, '_id');
     const adminUserIds = adminUsers.map(u => u._id.toString());
     // Only count users with a colorMode set
     const usage = await User.aggregate([
-      { $match: { _id: { $nin: adminUserIds.map(id => new require('mongoose').Types.ObjectId(id)) }, colorMode: { $in: ['light', 'dark'] } } },
+      { $match: { _id: { $nin: adminUserIds.map(id => mongoose.Types.ObjectId(id)) }, colorMode: { $in: ['light', 'dark'] } } },
       { $group: { _id: '$colorMode', count: { $sum: 1 } } },
       { $project: { colorMode: '$_id', count: 1, _id: 0 } }
     ]);
