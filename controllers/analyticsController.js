@@ -2,9 +2,9 @@
 exports.postColorMode = async (req, res) => {
   try {
     const { colorMode } = req.body;
-    const userId = req.headers['x-session-id'] || req.body.userId;
+    const userId = req.headers['x-session-id'] || req.body.sessionId;
     if (!userId || !colorMode) {
-      return res.status(400).json({ error: 'Missing userId or colorMode' });
+      return res.status(400).json({ error: 'Missing sessionId or colorMode' });
     }
     // Only allow valid color modes
     if (!['light', 'dark'].includes(colorMode)) {
