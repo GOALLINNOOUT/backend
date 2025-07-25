@@ -7,7 +7,7 @@ exports.postColorMode = async (req, res) => {
       return res.status(400).json({ error: 'Missing sessionId or colorMode' });
     }
     // Only allow valid color modes
-    if (!['light', 'dark', 'system'].includes(colorMode)) {
+    if (!['light', 'dark'].includes(colorMode)) {
       return res.status(400).json({ error: 'Invalid colorMode' });
     }
     const session = await require('../models/SessionLog').findOneAndUpdate(
@@ -36,7 +36,7 @@ exports.getColorModeUsage = async (req, res) => {
       match.startTime = { $gte: new Date(startDate), $lte: new Date(endDate) };
     }
     // Only count sessions with a colorMode set
-    match.colorMode = { $in: ['light', 'dark', 'system'] };
+    match.colorMode = { $in: ['light', 'dark'] };
     // Exclude admin users
     const User = require('../models/User');
     const adminUsers = await User.find({ role: 'admin' }, '_id');
@@ -49,7 +49,7 @@ exports.getColorModeUsage = async (req, res) => {
       { $project: { colorMode: '$_id', count: 1, _id: 0 } }
     ]);
     // Ensure all color modes are present in the result
-    const colorModes = ['light', 'dark', 'system'];
+    const colorModes = ['light', 'dark'];
     const usageMap = Object.fromEntries(usage.map(u => [u.colorMode, u.count]));
     const result = colorModes.map(mode => ({ colorMode: mode, count: usageMap[mode] || 0 }));
     res.json({ colorModeUsage: result });
