@@ -20,3 +20,5 @@ router.get('/funnel', auth, requireAdmin, analyticsController.getFunnelAnalytics
 // Live Visitors Trend (last N minutes)
 router.get('/live-visitors-trend', auth, requireAdmin, analyticsController.getLiveVisitorsTrend);
 module.exports = router;
+// Web Vitals (Site Speed & Performance)
+router.post('/web-vitals', analyticsController.postWebVitals);

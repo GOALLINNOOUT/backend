@@ -1,4 +1,22 @@
 // =========================
+// Web Vitals (Site Speed & Performance)
+// =========================
+const WebVitals = require('../models/WebVitals');
+
+exports.postWebVitals = async (req, res) => {
+  try {
+    await WebVitals.create({
+      ...req.body,
+      timestamp: new Date(),
+      userAgent: req.headers['user-agent'],
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to save web vitals' });
+  }
+};
+// =========================
 // User Flow / Path Analysis
 // =========================
 // Returns the most common navigation paths (for Sankey diagrams, etc.)
