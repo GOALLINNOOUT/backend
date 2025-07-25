@@ -7,6 +7,9 @@ const auth = require('../middleware/auth');
 
 
 router.get('/sales', auth, requireAdmin, analyticsController.getSalesAnalytics);
+
+// Color mode analytics (update color mode for session)
+router.post('/color-mode', analyticsController.postColorMode);
 router.get('/products', auth, requireAdmin, analyticsController.getProductPerformance);
 router.get('/customers', auth, requireAdmin, analyticsController.getCustomerBehavior);
 router.get('/traffic', auth, requireAdmin, analyticsController.getTrafficEngagement);

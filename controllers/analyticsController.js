@@ -1,3 +1,29 @@
+// POST /v1/analytics/color-mode
+exports.postColorMode = async (req, res) => {
+  try {
+    const { colorMode } = req.body;
+    const sessionId = req.headers['x-session-id'] || req.body.sessionId;
+    if (!sessionId || !colorMode) {
+      return res.status(400).json({ error: 'Missing sessionId or colorMode' });
+    }
+    // Only allow valid color modes
+    if (!['light', 'dark', 'system'].includes(colorMode)) {
+      return res.status(400).json({ error: 'Invalid colorMode' });
+    }
+    const session = await require('../models/SessionLog').findOneAndUpdate(
+      { sessionId },
+      { colorMode },
+      { new: true }
+    );
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Failed to update color mode', err);
+    res.status(500).json({ error: 'Failed to update color mode' });
+  }
+};
 // =========================
 // Error Boundary Analytics
 // =========================

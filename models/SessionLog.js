@@ -5,6 +5,7 @@ const SessionLogSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   ip: String,
   device: String,
+  colorMode: { type: String, enum: ['light', 'dark', 'system'], default: 'system' },
   startTime: { type: Date, required: true },
   endTime: { type: Date },
   lastActivity: { type: Date }, // Track last activity for session expiration
