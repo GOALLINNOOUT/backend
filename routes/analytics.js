@@ -1,3 +1,4 @@
+
 const express = require('express');
 const router = express.Router();
 const analyticsController = require('../controllers/analyticsController');
@@ -23,3 +24,6 @@ module.exports = router;
 // Web Vitals (Site Speed & Performance)
 router.post('/web-vitals', analyticsController.postWebVitals);
 router.get('/web-vitals', analyticsController.getWebVitals);
+// Error Boundary Analytics
+router.post('/log-error', analyticsController.logErrorEvent);
+router.get('/errors', auth, requireAdmin, analyticsController.getErrorEvents);

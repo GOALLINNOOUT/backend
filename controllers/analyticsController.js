@@ -1,4 +1,43 @@
 // =========================
+// Error Boundary Analytics
+// =========================
+const ErrorEvent = require('../models/ErrorEvent');
+
+// POST /v1/analytics/log-error
+exports.logErrorEvent = async (req, res) => {
+  try {
+    const { message, stack, url, user, timestamp } = req.body;
+    await ErrorEvent.create({ message, stack, url, user, timestamp });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Failed to log error event', err);
+    res.status(500).json({ error: 'Failed to log error event' });
+  }
+};
+
+// GET /v1/analytics/errors?startDate=...&endDate=...
+exports.getErrorEvents = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const match = {};
+    if (startDate && endDate) {
+      match.timestamp = { $gte: new Date(startDate), $lte: new Date(endDate) };
+    }
+    const errors = await ErrorEvent.find(match, {
+      message: 1,
+      stack: 1,
+      url: 1,
+      user: 1,
+      timestamp: 1,
+      _id: 0
+    }).sort({ timestamp: -1 }).lean();
+    res.json({ errors });
+  } catch (err) {
+    console.error('Failed to fetch error events', err);
+    res.status(500).json({ error: 'Failed to fetch error events' });
+  }
+};
+// =========================
 // GET Web Vitals Metrics (for dashboard visualization)
 // =========================
 exports.getWebVitals = async (req, res) => {
