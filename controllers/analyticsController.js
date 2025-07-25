@@ -1,4 +1,32 @@
 // =========================
+// GET Web Vitals Metrics (for dashboard visualization)
+// =========================
+exports.getWebVitals = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const match = {};
+    if (startDate && endDate) {
+      match.timestamp = { $gte: new Date(startDate), $lte: new Date(endDate) };
+    }
+    // Optionally, add more filters (page, device, etc.)
+    const metrics = await WebVitals.find(match, {
+      name: 1,
+      value: 1,
+      timestamp: 1,
+      page: 1,
+      url: 1,
+      userAgent: 1,
+      sessionId: 1,
+      userId: 1,
+      _id: 0
+    }).lean();
+    res.json({ metrics });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch web vitals metrics' });
+  }
+};
+// =========================
 // Web Vitals (Site Speed & Performance)
 // =========================
 const WebVitals = require('../models/WebVitals');

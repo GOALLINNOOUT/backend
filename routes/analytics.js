@@ -22,3 +22,4 @@ router.get('/live-visitors-trend', auth, requireAdmin, analyticsController.getLi
 module.exports = router;
 // Web Vitals (Site Speed & Performance)
 router.post('/web-vitals', analyticsController.postWebVitals);
+router.get('/web-vitals', analyticsController.getWebVitals);
