@@ -72,11 +72,15 @@ exports.getUserFlow = async (req, res) => {
       { $group: { _id: '$sessionId', path: { $push: '$page' } } }
     ]);
 
-    // Count unique paths
+    // Count unique paths (only multi-step)
     const pathCounts = {};
     sessions.forEach(s => {
       // Remove consecutive duplicates for cleaner paths
       const deduped = s.path.filter((p, i, arr) => i === 0 || p !== arr[i - 1]);
+      if (deduped.length < 2) return; // Only count multi-step paths
+      // Optionally, skip cycles (node appears more than once)
+      const uniqueSteps = new Set(deduped);
+      if (uniqueSteps.size !== deduped.length) return;
       const path = deduped.join(' → ');
       pathCounts[path] = (pathCounts[path] || 0) + 1;
     });
