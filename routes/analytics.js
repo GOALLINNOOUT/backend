@@ -11,6 +11,8 @@ router.get('/customers', auth, requireAdmin, analyticsController.getCustomerBeha
 router.get('/traffic', auth, requireAdmin, analyticsController.getTrafficEngagement);
 router.get('/orders', auth, requireAdmin, analyticsController.getOrdersOverview);
 router.get('/marketing', auth, requireAdmin, analyticsController.getMarketingPerformance);
+// User Flow / Path Analysis
+router.get('/userflow', auth, requireAdmin, analyticsController.getUserFlow);
 // New: Visits per page (not unique IP)
 router.get('/page-visits-trend', auth, requireAdmin, analyticsController.getPageVisitsTrend);
 // Funnel and Cart Analytics
