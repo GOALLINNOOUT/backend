@@ -10,6 +10,9 @@ router.get('/sales', auth, requireAdmin, analyticsController.getSalesAnalytics);
 
 // Color mode analytics (update color mode for session)
 router.post('/color-mode', analyticsController.postColorMode);
+// Color mode usage analytics
+const { getColorModeUsage } = require('../controllers/analyticsController');
+router.get('/color-mode-usage', getColorModeUsage);
 router.get('/products', auth, requireAdmin, analyticsController.getProductPerformance);
 router.get('/customers', auth, requireAdmin, analyticsController.getCustomerBehavior);
 router.get('/traffic', auth, requireAdmin, analyticsController.getTrafficEngagement);

@@ -24,6 +24,40 @@ exports.postColorMode = async (req, res) => {
     res.status(500).json({ error: 'Failed to update color mode' });
   }
 };
+
+// GET /v1/analytics/color-mode-usage
+// Returns the count of sessions per color mode (for dashboard chart)
+exports.getColorModeUsage = async (req, res) => {
+  try {
+    // Optionally, add date filtering if needed
+    const { startDate, endDate } = req.query;
+    const match = {};
+    if (startDate && endDate) {
+      match.startTime = { $gte: new Date(startDate), $lte: new Date(endDate) };
+    }
+    // Only count sessions with a colorMode set
+    match.colorMode = { $in: ['light', 'dark', 'system'] };
+    // Exclude admin users
+    const User = require('../models/User');
+    const adminUsers = await User.find({ role: 'admin' }, '_id');
+    const adminUserIds = adminUsers.map(u => u._id.toString());
+    match.user = { $nin: adminUserIds };
+    const SessionLog = require('../models/SessionLog');
+    const usage = await SessionLog.aggregate([
+      { $match: match },
+      { $group: { _id: '$colorMode', count: { $sum: 1 } } },
+      { $project: { colorMode: '$_id', count: 1, _id: 0 } }
+    ]);
+    // Ensure all color modes are present in the result
+    const colorModes = ['light', 'dark', 'system'];
+    const usageMap = Object.fromEntries(usage.map(u => [u.colorMode, u.count]));
+    const result = colorModes.map(mode => ({ colorMode: mode, count: usageMap[mode] || 0 }));
+    res.json({ colorModeUsage: result });
+  } catch (err) {
+    console.error('Failed to fetch color mode usage', err);
+    res.status(500).json({ error: 'Failed to fetch color mode usage' });
+  }
+};
 // =========================
 // Error Boundary Analytics
 // =========================
