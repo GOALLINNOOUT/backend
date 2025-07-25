@@ -51,11 +51,19 @@ exports.postWebVitals = async (req, res) => {
 exports.getUserFlow = async (req, res) => {
   try {
     // Optional: segmentation filters (device, state, referrer, campaign, etc.)
+
     const match = {};
     if (req.query.device) match.device = req.query.device;
     if (req.query.state) match.state = req.query.state;
     if (req.query.referrer) match.referrer = req.query.referrer;
     if (req.query.campaign) match.campaign = req.query.campaign;
+    // Add date filter if provided
+    if (req.query.startDate && req.query.endDate) {
+      match.timestamp = {
+        $gte: new Date(req.query.startDate),
+        $lte: new Date(req.query.endDate)
+      };
+    }
 
     // Group by sessionId, sort by timestamp, build navigation paths
     const sessions = await PageViewLog.aggregate([
