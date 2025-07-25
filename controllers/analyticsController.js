@@ -43,9 +43,13 @@ exports.getColorModeUsage = async (req, res) => {
     const adminUserIds = adminUsers.map(u => u._id.toString());
     match.user = { $nin: adminUserIds };
     const SessionLog = require('../models/SessionLog');
+    // Aggregate unique users per color mode
     const usage = await SessionLog.aggregate([
       { $match: match },
-      { $group: { _id: '$colorMode', count: { $sum: 1 } } },
+      // Only include sessions with a user field
+      { $match: { user: { $ne: null } } },
+      { $group: { _id: { colorMode: '$colorMode', user: '$user' } } },
+      { $group: { _id: '$_id.colorMode', count: { $sum: 1 } } },
       { $project: { colorMode: '$_id', count: 1, _id: 0 } }
     ]);
     // Ensure all color modes are present in the result
