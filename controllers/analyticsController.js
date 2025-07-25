@@ -21,32 +21,20 @@ exports.postColorMode = async (req, res) => {
     if (!['light', 'dark'].includes(colorMode)) {
       return res.status(400).json({ error: 'Invalid colorMode' });
     }
-    const SessionLog = require('../models/SessionLog');
-    const User = require('../models/User');
-    let user = null;
+    const Theme = require('../models/Theme');
+    let filter = {};
     if (userFromToken) {
-      // Authenticated user (from token)
-      user = await User.findByIdAndUpdate(
-        userFromToken,
-        { colorMode },
-        { new: true }
-      );
+      filter.user = userFromToken;
     } else {
-      // Find the session and get the user
-      const session = await SessionLog.findOne({ sessionId });
-      if (!session || !session.user) {
-        return res.status(404).json({ error: 'Session or user not found' });
-      }
-      user = await User.findByIdAndUpdate(
-        session.user,
-        { colorMode },
-        { new: true }
-      );
+      filter.sessionId = sessionId;
     }
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    res.json({ success: true });
+    // Upsert theme preference
+    const theme = await Theme.findOneAndUpdate(
+      filter,
+      { colorMode, updatedAt: new Date() },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+    res.json({ success: true, theme });
   } catch (err) {
     console.error('Failed to update color mode', err);
     res.status(500).json({ error: 'Failed to update color mode' });
@@ -57,14 +45,10 @@ exports.postColorMode = async (req, res) => {
 // Returns the count of users per color mode (for dashboard chart)
 exports.getColorModeUsage = async (req, res) => {
   try {
-    const User = require('../models/User');
-    const mongoose = require('mongoose');
-    // Exclude admin users
-    const adminUsers = await User.find({ role: 'admin' }, '_id');
-    const adminUserIds = adminUsers.map(u => u._id.toString());
-    // Only count users with a colorMode set
-    const usage = await User.aggregate([
-      { $match: { _id: { $nin: adminUserIds.map(id => new mongoose.Types.ObjectId(id)) }, colorMode: { $in: ['light', 'dark'] } } },
+    const Theme = require('../models/Theme');
+    // Only count themes with a colorMode set
+    const usage = await Theme.aggregate([
+      { $match: { colorMode: { $in: ['light', 'dark'] } } },
       { $group: { _id: '$colorMode', count: { $sum: 1 } } },
       { $project: { colorMode: '$_id', count: 1, _id: 0 } }
     ]);
