@@ -2,10 +2,20 @@
 exports.postColorMode = async (req, res) => {
   try {
     const { colorMode } = req.body;
-    // Accept sessionId from x-session-id header or sessionId in body
-    const sessionId = req.headers['x-session-id'] || req.body.sessionId;
-    if (!sessionId || !colorMode) {
-      return res.status(400).json({ error: 'Missing sessionId or colorMode' });
+    // Accept sessionId from cookie, header, or body
+    let sessionId = null;
+    if (req.cookies && req.cookies.sessionId) sessionId = req.cookies.sessionId;
+    if (!sessionId && req.headers['x-session-id']) sessionId = req.headers['x-session-id'];
+    if (!sessionId && req.body.sessionId) sessionId = req.body.sessionId;
+
+    // If user is authenticated (req.user), allow direct update
+    const userFromToken = req.user && req.user._id;
+
+    if (!sessionId && !userFromToken) {
+      return res.status(400).json({ error: 'Missing sessionId or user context' });
+    }
+    if (!colorMode) {
+      return res.status(400).json({ error: 'Missing colorMode' });
     }
     // Only allow valid color modes
     if (!['light', 'dark'].includes(colorMode)) {
@@ -13,17 +23,26 @@ exports.postColorMode = async (req, res) => {
     }
     const SessionLog = require('../models/SessionLog');
     const User = require('../models/User');
-    // Find the session and get the user
-    const session = await SessionLog.findOne({ sessionId });
-    if (!session || !session.user) {
-      return res.status(404).json({ error: 'Session or user not found' });
+    let user = null;
+    if (userFromToken) {
+      // Authenticated user (from token)
+      user = await User.findByIdAndUpdate(
+        userFromToken,
+        { colorMode },
+        { new: true }
+      );
+    } else {
+      // Find the session and get the user
+      const session = await SessionLog.findOne({ sessionId });
+      if (!session || !session.user) {
+        return res.status(404).json({ error: 'Session or user not found' });
+      }
+      user = await User.findByIdAndUpdate(
+        session.user,
+        { colorMode },
+        { new: true }
+      );
     }
-    // Update the user's colorMode
-    const user = await User.findByIdAndUpdate(
-      session.user,
-      { colorMode },
-      { new: true }
-    );
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
