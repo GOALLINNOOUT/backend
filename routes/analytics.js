@@ -3,13 +3,13 @@ const express = require('express');
 const router = express.Router();
 const analyticsController = require('../controllers/analyticsController');
 const requireAdmin = require('../middleware/requireAdmin');
-const { optionalAuth, auth } = require('../middleware/auth');
+const auth = require('../middleware/auth');
 
 
 router.get('/sales', auth, requireAdmin, analyticsController.getSalesAnalytics);
 
 // Color mode analytics (update color mode for session)
-router.post('/color-mode', optionalAuth, analyticsController.postColorMode);
+router.post('/color-mode', auth, analyticsController.postColorMode);
 // Color mode usage analytics
 const { getColorModeUsage } = require('../controllers/analyticsController');
 router.get('/color-mode-usage', getColorModeUsage);
