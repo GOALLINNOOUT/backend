@@ -2,21 +2,22 @@
 exports.postColorMode = async (req, res) => {
   try {
     const { colorMode } = req.body;
-    const sessionId = req.headers['x-session-id'] || req.body.sessionId;
-    if (!sessionId || !colorMode) {
-      return res.status(400).json({ error: 'Missing sessionId or colorMode' });
+    const userId = req.headers['x-session-id'] || req.body.userId;
+    if (!userId || !colorMode) {
+      return res.status(400).json({ error: 'Missing userId or colorMode' });
     }
     // Only allow valid color modes
     if (!['light', 'dark'].includes(colorMode)) {
       return res.status(400).json({ error: 'Invalid colorMode' });
     }
-    const session = await require('../models/SessionLog').findOneAndUpdate(
-      { sessionId },
+    const User = require('../models/User');
+    const user = await User.findByIdAndUpdate(
+      userId,
       { colorMode },
       { new: true }
     );
-    if (!session) {
-      return res.status(404).json({ error: 'Session not found' });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
     }
     res.json({ success: true });
   } catch (err) {
@@ -26,30 +27,17 @@ exports.postColorMode = async (req, res) => {
 };
 
 // GET /v1/analytics/color-mode-usage
-// Returns the count of sessions per color mode (for dashboard chart)
+// Returns the count of users per color mode (for dashboard chart)
 exports.getColorModeUsage = async (req, res) => {
   try {
-    // Optionally, add date filtering if needed
-    const { startDate, endDate } = req.query;
-    const match = {};
-    if (startDate && endDate) {
-      match.startTime = { $gte: new Date(startDate), $lte: new Date(endDate) };
-    }
-    // Only count sessions with a colorMode set
-    match.colorMode = { $in: ['light', 'dark'] };
-    // Exclude admin users
     const User = require('../models/User');
+    // Exclude admin users
     const adminUsers = await User.find({ role: 'admin' }, '_id');
     const adminUserIds = adminUsers.map(u => u._id.toString());
-    match.user = { $nin: adminUserIds };
-    const SessionLog = require('../models/SessionLog');
-    // Aggregate unique users per color mode
-    const usage = await SessionLog.aggregate([
-      { $match: match },
-      // Only include sessions with a user field
-      { $match: { user: { $ne: null } } },
-      { $group: { _id: { colorMode: '$colorMode', user: '$user' } } },
-      { $group: { _id: '$_id.colorMode', count: { $sum: 1 } } },
+    // Only count users with a colorMode set
+    const usage = await User.aggregate([
+      { $match: { _id: { $nin: adminUserIds.map(id => new require('mongoose').Types.ObjectId(id)) }, colorMode: { $in: ['light', 'dark'] } } },
+      { $group: { _id: '$colorMode', count: { $sum: 1 } } },
       { $project: { colorMode: '$_id', count: 1, _id: 0 } }
     ]);
     // Ensure all color modes are present in the result

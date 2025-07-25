@@ -11,6 +11,7 @@ const userSchema = new mongoose.Schema({
   resetPasswordToken: { type: String },
   resetPasswordExpires: { type: Date },
   phone: { type: String },
+  colorMode: { type: String, enum: ['light', 'dark'], default: 'light', index: true },
   address: { type: String },
   state: { type: String },
   lga: { type: String },
