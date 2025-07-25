@@ -52,6 +52,11 @@ exports.getUserFlow = async (req, res) => {
   try {
     // Optional: segmentation filters (device, state, referrer, campaign, etc.)
 
+    // Exclude admin users from analytics
+    const adminUsers = await User.find({ role: 'admin' }, '_id email');
+    const adminUserIds = adminUsers.map(u => u._id.toString());
+    const adminEmails = adminUsers.map(u => u.email);
+
     const match = {};
     if (req.query.device) match.device = req.query.device;
     if (req.query.state) match.state = req.query.state;
@@ -64,6 +69,9 @@ exports.getUserFlow = async (req, res) => {
         $lte: new Date(req.query.endDate)
       };
     }
+    // Exclude admin users by user and email
+    match.user = { $nin: adminUserIds };
+    match.email = { $nin: adminEmails };
 
     // Group by sessionId, sort by timestamp, build navigation paths
     const sessions = await PageViewLog.aggregate([
@@ -72,7 +80,7 @@ exports.getUserFlow = async (req, res) => {
       { $group: { _id: '$sessionId', path: { $push: '$page' } } }
     ]);
 
-    // Count unique paths (only multi-step)
+    // Count unique paths (only multi-step, no cycles, no admin pages)
     const pathCounts = {};
     sessions.forEach(s => {
       // Remove consecutive duplicates for cleaner paths
@@ -81,6 +89,8 @@ exports.getUserFlow = async (req, res) => {
       // Optionally, skip cycles (node appears more than once)
       const uniqueSteps = new Set(deduped);
       if (uniqueSteps.size !== deduped.length) return;
+      // Exclude any path containing an admin page
+      if (deduped.some(page => typeof page === 'string' && page.includes('/admin/'))) return;
       const path = deduped.join(' → ');
       pathCounts[path] = (pathCounts[path] || 0) + 1;
     });
