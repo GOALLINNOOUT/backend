@@ -209,7 +209,7 @@ exports.exportPDF = async (req, res) => {
     const tab = req.query.tab || 'orders';
     const data = await getAnalyticsData(tab, req.query);
     if (!data || (Array.isArray(data) && !data.length)) return res.status(404).send('No data to export');
-    const doc = new PDFDocument();
+    const doc = new PDFDocument({ margin: 30 });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename="analytics-export.pdf"');
     doc.pipe(res);
@@ -227,34 +227,105 @@ exports.exportPDF = async (req, res) => {
         doc.moveDown();
       }
     }
-    // Render data as table or summary
-    if (tab === 'sales' && data.revenueTrends) {
-      doc.fontSize(14).text('Revenue Trends:', { underline: true });
-      data.revenueTrends.forEach(row => {
-        doc.fontSize(10).text(`Date: ${row._id || row.date}, Revenue: ₦${row.revenue}, Orders: ${row.orders}`);
+    // Render all relevant arrays/objects for the selected tab as tables
+    function renderTable(title, arr) {
+      if (!Array.isArray(arr) || arr.length === 0) return;
+      const fields = Object.keys(arr[0]);
+      doc.fontSize(14).text(title, { underline: true });
+      doc.moveDown(0.5);
+      doc.fontSize(10).fillColor('black');
+      fields.forEach((field, idx) => {
+        doc.text(field, { continued: idx < fields.length - 1, underline: true });
       });
-    } else if (tab === 'orders' && data.orderTrends) {
-      doc.fontSize(14).text('Order Trends:', { underline: true });
-      data.orderTrends.forEach(row => {
-        doc.fontSize(10).text(`Date: ${row._id || row.date}, Orders: ${row.orders}`);
+      doc.moveDown(0.3);
+      arr.forEach(row => {
+        fields.forEach((field, idx) => {
+          let value = row[field];
+          if (typeof value === 'object' && value !== null) value = JSON.stringify(value);
+          doc.text(value !== undefined ? value : '', { continued: idx < fields.length - 1 });
+        });
+        doc.moveDown(0.2);
       });
-    } else if (tab === 'products' && data.statsArr) {
-      doc.fontSize(14).text('Product Performance:', { underline: true });
-      data.statsArr.forEach(row => {
-        doc.fontSize(10).text(`Product: ${row.name}, Sold: ${row.quantity}, Revenue: ₦${row.revenue}, Views: ${row.views}, Stock: ${row.stock}`);
-      });
-    } else if (tab === 'traffic' && data.visitsAgg) {
-      doc.fontSize(14).text('Traffic Trends:', { underline: true });
-      data.visitsAgg.forEach(row => {
-        doc.fontSize(10).text(`Date: ${row.date}, Visits: ${row.visits}`);
-      });
-      doc.fontSize(12).text(`Avg. Session Duration: ${data.avgSessionDuration} min`);
-    } else if (tab === 'marketing' && data.campaigns) {
-      doc.fontSize(14).text('Marketing Campaigns:', { underline: true });
-      data.campaigns.forEach(row => {
-        doc.fontSize(10).text(`Campaign: ${row.name}, Conversions: ${row.conversions}, Revenue: ₦${row.revenue}, Spend: ₦${row.spend}, ROI: ${row.roi}%`);
-      });
-    } else {
+      doc.moveDown(1);
+    }
+
+    // SALES TAB
+    if (tab === 'sales') {
+      if (data.revenueTrends) renderTable('Revenue Trends', data.revenueTrends);
+      if (data.topDays) renderTable('Top Performing Days', data.topDays);
+      // Also show summary stats
+      doc.fontSize(12).text(`Total Sales: ${data.totalSales}`);
+      doc.fontSize(12).text(`Total Revenue: ₦${data.totalRevenue}`);
+      doc.fontSize(12).text(`Avg Order Value: ₦${data.avgOrderValue}`);
+      doc.fontSize(12).text(`Return Rate: ${data.returnRate}%`);
+    }
+    // ORDERS TAB
+    else if (tab === 'orders') {
+      if (data.statusBreakdown) renderTable('Order Status Breakdown', data.statusBreakdown);
+      if (data.orderTrends) renderTable('Order Trends', data.orderTrends);
+      doc.fontSize(12).text(`Avg Fulfillment Time: ${data.avgFulfillmentTime} days`);
+      doc.fontSize(12).text(`Cancelled Orders: ${data.cancelledCount}`);
+      doc.fontSize(12).text(`Returned Orders: ${data.returnedCount}`);
+    }
+    // PRODUCTS TAB
+    else if (tab === 'products') {
+      if (data.topSelling) renderTable('Top Selling Products', data.topSelling);
+      if (data.leastPerforming) renderTable('Least Performing Products', data.leastPerforming);
+      if (data.mostViewed) renderTable('Most Viewed Products', data.mostViewed);
+      if (data.conversionRates) renderTable('Conversion Rates', data.conversionRates);
+      if (data.stockAlerts) renderTable('Stock Alerts (≤5)', data.stockAlerts);
+      if (data.stagnantProducts) renderTable('Stagnant Products (No Sales)', data.stagnantProducts);
+    }
+    // CUSTOMERS TAB
+    else if (tab === 'customers') {
+      doc.fontSize(12).text(`New Customers: ${data.newCustomers}`);
+      doc.fontSize(12).text(`Returning Customers: ${data.returningCustomers}`);
+      if (data.topBuyers) renderTable('Top Buyers', data.topBuyers);
+      if (data.locations) renderTable('Customer Locations', data.locations);
+      if (data.devices) renderTable('Devices Used', data.devices);
+      doc.fontSize(12).text(`Retention Rate: ${data.retentionRate}%`);
+      doc.fontSize(12).text(`Customer Lifetime Value: ₦${data.customerLifetimeValue}`);
+      doc.fontSize(12).text(`Top Customer Lifetime Value: ₦${data.topCustomerLifetimeValue}`);
+      doc.fontSize(12).text(`Average Spend: ₦${data.averageSpend}`);
+      if (data.averageSpendPerCustomer) renderTable('Average Spend Per Customer', data.averageSpendPerCustomer);
+      doc.fontSize(12).text(`Live Visitors: ${data.liveVisitors}`);
+      doc.fontSize(12).text(`Live Carts: ${data.liveCarts}`);
+    }
+    // TRAFFIC TAB
+    else if (tab === 'traffic') {
+      if (data.visitsTrends) renderTable('Visits Trend', data.visitsTrends);
+      doc.fontSize(12).text(`Avg Session Duration: ${data.avgSessionDuration} min`);
+      doc.fontSize(12).text(`Bounce Rate: ${data.bounceRate}%`);
+      if (data.topLandingPages) renderTable('Top Landing Pages', data.topLandingPages);
+      if (data.topReferrers) renderTable('Top Referrers', data.topReferrers);
+      if (data.topExitPages) renderTable('Top Exit Pages', data.topExitPages);
+      if (data.pageViewsPerSession) renderTable('Page Views Per Session', data.pageViewsPerSession);
+      if (data.topMostViewedPages) renderTable('Top Most Viewed Pages', data.topMostViewedPages);
+      if (data.oses) renderTable('Operating Systems', data.oses);
+      if (data.browsers) renderTable('Browsers', data.browsers);
+    }
+    // MARKETING TAB
+    else if (tab === 'marketing') {
+      if (data.campaigns) renderTable('Campaigns', data.campaigns);
+      doc.fontSize(12).text(`Total Spend: ₦${data.totalSpend}`);
+      doc.fontSize(12).text(`Total Revenue: ₦${data.totalRevenue}`);
+    }
+    // Add support for other tabs if needed (userflow, funnel, siteSpeed, errors)
+    else if (tab === 'userflow' && data.topPaths) {
+      renderTable('Top User Navigation Paths', data.topPaths);
+    }
+    else if (tab === 'funnel') {
+      if (data.funnel) renderTable('Funnel', data.funnel);
+      if (data.topCartProducts) renderTable('Top Added-to-Cart Products', data.topCartProducts);
+    }
+    else if (tab === 'siteSpeed' && data.metrics) {
+      renderTable('Web Vitals Metrics', data.metrics);
+    }
+    else if (tab === 'errors' && data.errors) {
+      renderTable('Error Events', data.errors);
+    }
+    else {
+      // Fallback: show JSON
       doc.fontSize(12).text(JSON.stringify(data, null, 2));
     }
     doc.end();
