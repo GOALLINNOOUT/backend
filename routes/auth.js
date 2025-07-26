@@ -4,8 +4,8 @@ const router = express.Router();
 router.post('/logout', (req, res) => {
   res.clearCookie('token', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'Strict',
+    secure: true,
+    sameSite: 'None',
   });
   res.json({ success: true });
 });
@@ -72,8 +72,8 @@ router.post('/signup', async (req, res) => {
     const token = jwt.sign({ _id: user._id, userId: user._id, role: user.role, name: user.name, email: user.email }, process.env.JWT_SECRET, { expiresIn: '30d' });
     res.cookie('token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'Strict',
+      secure: true,
+      sameSite: 'None',
       maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
     });
     res.status(201).json({ user: { id: user._id, name: user.name, email: user.email, role: user.role } }); // Do not send token in body
@@ -122,8 +122,8 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign({ _id: user._id, userId: user._id, role: user.role, name: user.name, email: user.email }, process.env.JWT_SECRET, { expiresIn: '30d' });
     res.cookie('token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'Strict',
+      secure: true,
+      sameSite: 'None',
       maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
     });
     res.json({ user: { id: user._id, name: user.name, email: user.email, role: user.role, status: user.status } }); // Do not send token in body
