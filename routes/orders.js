@@ -371,6 +371,21 @@ router.patch('/:id/cancel', auth, async (req, res) => {
         }).catch(() => {});
       }
     } catch (e) { /* ignore email errors */ }
+    // Send push notification to all admins
+    try {
+      const { sendPushToUserAndAdmins } = require('./push');
+      const User = require('../models/User');
+      const admins = await User.find({ role: 'admin' });
+      for (const admin of admins) {
+        await sendPushToUserAndAdmins(admin._id, {
+          title: 'Order Cancelled',
+          body: `Order #${order._id.toString().slice(-6).toUpperCase()} was cancelled by customer ${order.customer.name || order.customer.email}.`,
+          url: '/admin/orders'
+        });
+      }
+    } catch (e) {
+      console.error('Failed to send push notification to admins:', e);
+    }
     res.json(order);
   } catch (err) {
     res.status(500).json({ error: 'Failed to cancel order' });
