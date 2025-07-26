@@ -1,3 +1,12 @@
+// Logout: clear JWT cookie
+router.post('/logout', (req, res) => {
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'Strict',
+  });
+  res.json({ success: true });
+});
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -61,7 +70,13 @@ router.post('/signup', async (req, res) => {
     });
     // Include _id as _id in JWT token for compatibility with admin logging
     const token = jwt.sign({ _id: user._id, userId: user._id, role: user.role, name: user.name, email: user.email }, process.env.JWT_SECRET, { expiresIn: '30d' });
-    res.status(201).json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role } }); // Return role
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'Strict',
+      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+    });
+    res.status(201).json({ user: { id: user._id, name: user.name, email: user.email, role: user.role } }); // Do not send token in body
   } catch (err) {
     console.error('Signup error:', err); // Improved error logging
     // No user is saved if any error occurs before user.save()
@@ -105,7 +120,13 @@ router.post('/login', async (req, res) => {
     }
     // Include _id as _id in JWT token for compatibility with admin logging
     const token = jwt.sign({ _id: user._id, userId: user._id, role: user.role, name: user.name, email: user.email }, process.env.JWT_SECRET, { expiresIn: '30d' });
-    res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role, status: user.status } }); // Return status
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'Strict',
+      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+    });
+    res.json({ user: { id: user._id, name: user.name, email: user.email, role: user.role, status: user.status } }); // Do not send token in body
   } catch (err) {
     console.error('Login error:', err); 
     res.status(500).json({ error: 'Server error', details: err.message });
