@@ -25,17 +25,21 @@ router.post('/', optionalAuth, async (req, res) => {
     // Send emails to user and admin
     try {
       await sendAppointmentEmails({ name, email, service, datetime });
+      // Format datetime for user-friendly display
+      const formattedDate = new Date(datetime).toLocaleString('en-US', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true
+      });
       // Send notification to user (if registered)
       if (req.user && req.user._id) {
         await sendNotification({
           userId: req.user._id,
-          message: `Your appointment for ${service} on ${datetime} was received.`,
+          message: `Your appointment for ${service} on ${formattedDate} was received.`,
           type: 'info'
         });
       }
       // Notify all admins
       await notifyAdmins({
-        message: `New appointment request from ${name} (${email}) for ${service} on ${datetime}.`,
+        message: `New appointment request from ${name} (${email}) for ${service} on ${formattedDate}.`,
         type: 'system'
       });
       // Send push notification to all admins
@@ -43,7 +47,7 @@ router.post('/', optionalAuth, async (req, res) => {
         const { sendPushToUserAndAdmins } = require('./push');
         const User = require('../models/User');
         const admins = await User.find({ role: 'admin' });
-        const notifMsgAdmin = `New appointment request from ${name} (${email}) for ${service} on ${datetime}.`;
+        const notifMsgAdmin = `New appointment request from ${name} (${email}) for ${service} on ${formattedDate}.`;
         for (const admin of admins) {
           await sendPushToUserAndAdmins(admin._id, {
             title: 'New Appointment',
