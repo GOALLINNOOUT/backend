@@ -371,20 +371,25 @@ router.patch('/:id/cancel', auth, async (req, res) => {
         }).catch(() => {});
       }
     } catch (e) { /* ignore email errors */ }
-    // Send push notification to all admins
+    // Send push notification and save notification to all admins
     try {
       const { sendPushToUserAndAdmins } = require('./push');
       const User = require('../models/User');
+      const Notification = require('../models/Notification');
       const admins = await User.find({ role: 'admin' });
+      const notifMsgAdmin = `Order #${order._id.toString().slice(-6).toUpperCase()} was cancelled by customer ${order.customer.name || order.customer.email}.`;
       for (const admin of admins) {
+        // Save notification in DB
+        await Notification.create({ user: admin._id, message: notifMsgAdmin, type: 'order' });
+        // Send push notification
         await sendPushToUserAndAdmins(admin._id, {
           title: 'Order Cancelled',
-          body: `Order #${order._id.toString().slice(-6).toUpperCase()} was cancelled by customer ${order.customer.name || order.customer.email}.`,
+          body: notifMsgAdmin,
           url: '/admin/orders'
         });
       }
     } catch (e) {
-      console.error('Failed to send push notification to admins:', e);
+      console.error('Failed to send push notification or save admin notification:', e);
     }
     res.json(order);
   } catch (err) {
