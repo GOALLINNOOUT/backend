@@ -1,3 +1,5 @@
+const express = require('express');
+const router = express.Router();
 // Logout: clear JWT cookie
 router.post('/logout', (req, res) => {
   res.clearCookie('token', {
@@ -7,7 +9,6 @@ router.post('/logout', (req, res) => {
   });
   res.json({ success: true });
 });
-const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -24,7 +25,6 @@ function verifySetupToken(token) {
   }
 }
 
-const router = express.Router();
 
 // Signup
 router.post('/signup', async (req, res) => {
