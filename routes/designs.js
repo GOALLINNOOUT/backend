@@ -12,7 +12,7 @@ const { logAdminAction } = require('../utils/logAdminAction');
 // Admin role check middleware
 function requireAdmin(req, res, next) {
   if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Admin access required' });
+    return res.status(403).json({ error: 'Sorry, you need admin access to perform this action.' });
   }
   next();
 }
@@ -84,7 +84,7 @@ router.get('/suggestions', async (req, res) => {
     });
     res.json([...titleWords, ...descWords].slice(0, 10));
   } catch (err) {
-    res.status(500).json({ error: 'Server error', details: err.message, stack: err.stack });
+    res.status(500).json({ error: 'Oops! Something went wrong. Please try again later.' });
   }
 });
 
@@ -155,7 +155,7 @@ router.get('/paginated', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const design = await Design.findById(req.params.id);
-    if (!design) return res.status(404).json({ error: 'Not found' });
+    if (!design) return res.status(404).json({ error: 'Sorry, we could not find the requested design.' });
     res.json(design);
   } catch (err) {
     res.status(500).json({ error: 'Server error', details: err.message, stack: err.stack });
@@ -175,7 +175,7 @@ router.post('/', auth, requireAdmin, cloudinaryUpload.array('images', 5), async 
     const parsedCategories = categories ? (typeof categories === 'string' ? JSON.parse(categories) : categories) : [];
     const parsedColors = colors ? (typeof colors === 'string' ? JSON.parse(colors) : colors) : [];
     if (!parsedCategories || !Array.isArray(parsedCategories) || parsedCategories.length === 0) {
-      return res.status(400).json({ error: 'At least one category is required' });
+      return res.status(400).json({ error: 'Please select at least one category for your design.' });
     }
     const design = new Design({
       title,
@@ -190,7 +190,7 @@ router.post('/', auth, requireAdmin, cloudinaryUpload.array('images', 5), async 
     await logAdminAction({ req, action: `Created design: ${design.title}` });
     res.status(201).json(design);
   } catch (err) {
-    res.status(400).json({ error: 'Invalid data', details: err.message, stack: err.stack });
+    res.status(400).json({ error: 'The data provided is invalid. Please check your input and try again.' });
   }
 });
 

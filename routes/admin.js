@@ -13,7 +13,7 @@ const { logAdminAction, getDeviceInfo } = require('../utils/logAdminAction');
 // Admin role check middleware
 function requireAdmin(req, res, next) {
   if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Admin access required' });
+    return res.status(403).json({ error: 'Sorry, you need admin access to perform this action.' });
   }
   next();
 }
@@ -50,7 +50,7 @@ router.get('/sales-summary', async (req, res) => {
     const avgOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0;
     res.json({ totalSales, totalRevenue, avgOrderValue });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Oops! Something went wrong. Please try again later.' });
   }
 });
 
@@ -108,7 +108,7 @@ router.get('/low-stock', async (req, res) => {
     const threshold = parseInt(req.query.threshold) || 5;
     // Defensive: ensure threshold is a valid number
     if (isNaN(threshold)) {
-      return res.status(400).json({ error: 'Invalid threshold value' });
+      return res.status(400).json({ error: 'Please provide a valid threshold value.' });
     }
     // Only Perfume has a stock field
     const lowStockPerfumes = await Perfume.find({ stock: { $lte: threshold } });
@@ -167,7 +167,7 @@ router.get('/customers', async (req, res) => {
 router.get('/customer-orders', async (req, res) => {
   try {
     const { email } = req.query;
-    if (!email) return res.status(400).json({ error: 'Email required' });
+    if (!email) return res.status(400).json({ error: 'Please provide an email address.' });
     const orders = await Order.find({ 'customer.email': email });
     res.json(orders);
   } catch (err) {
@@ -185,7 +185,7 @@ router.patch('/blacklist-user', async (req, res) => {
       { status: 'suspended' },
       { new: true }
     );
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) return res.status(404).json({ error: 'Sorry, we could not find the requested user.' });
     // Send suspension email (branded, responsive)
     sendMail({
       to: user.email,
@@ -255,7 +255,7 @@ router.get('/customers/suggestions', async (req, res) => {
 router.patch('/update-customer', async (req, res) => {
   try {
     const { _id, name, email, role, status, phone, address, state, lga } = req.body;
-    if (!_id) return res.status(400).json({ error: 'User ID required' });
+    if (!_id) return res.status(400).json({ error: 'Please provide a user ID.' });
     // Only allow valid roles and statuses
     const allowedRoles = ['user', 'admin'];
     const allowedStatuses = ['active', 'suspended', 'blacklisted'];

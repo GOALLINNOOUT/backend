@@ -9,7 +9,7 @@ const router = express.Router();
 // Admin role check middleware
 function requireAdmin(req, res, next) {
   if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Admin access required' });
+    return res.status(403).json({ error: 'Sorry, you need admin access to view this page.' });
   }
   next();
 }
@@ -26,10 +26,10 @@ function optionalAuth(req, res, next) {
 router.get('/me', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select('-password');
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) return res.status(404).json({ error: 'We could not find your account. Please log in again.' });
     res.json({ data: user });
   } catch (err) {
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Oops! Something went wrong. Please try again later.' });
   }
 });
 
@@ -39,10 +39,10 @@ router.put('/me', auth, async (req, res) => {
     const updates = req.body;
     if (updates.password) delete updates.password; // Prevent password change here
     const user = await User.findByIdAndUpdate(req.user.userId, updates, { new: true, select: '-password' });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) return res.status(404).json({ error: 'We could not find your account. Please log in again.' });
     res.json(user);
   } catch (err) {
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Oops! Something went wrong. Please try again later.' });
   }
 });
 
@@ -51,17 +51,17 @@ router.post('/change-password', auth, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
     if (!currentPassword || !newPassword) {
-      return res.status(400).json({ error: 'Current and new password required' });
+      return res.status(400).json({ error: 'Please enter both your current and new password.' });
     }
     const user = await User.findById(req.user.userId);
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) return res.status(404).json({ error: 'We could not find your account. Please log in again.' });
     const isMatch = await user.comparePassword(currentPassword);
-    if (!isMatch) return res.status(400).json({ error: 'Current password is incorrect' });
+    if (!isMatch) return res.status(400).json({ error: 'Your current password is incorrect. Please try again.' });
     user.password = newPassword;
     await user.save();
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Oops! Something went wrong. Please try again later.' });
   }
 });
 
@@ -85,7 +85,7 @@ router.get('/login-history', auth, async (req, res) => {
     }));
     res.json(formattedLogs);
   } catch (err) {
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Oops! Something went wrong. Please try again later.' });
   }
 });
 
@@ -95,7 +95,7 @@ router.delete('/login-history', auth, async (req, res) => {
     await SecurityLog.deleteMany({ user: req.user.userId, action: { $in: ['login', 'logout'] } });
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Oops! Something went wrong. Please try again later.' });
   }
 });
 
@@ -127,7 +127,7 @@ router.post('/save-info', optionalAuth, async (req, res) => {
     );
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Oops! Something went wrong while saving your info. Please try again later.' });
   }
 });
 
@@ -140,7 +140,7 @@ router.get('/save-info', optionalAuth, async (req, res) => {
     if (!user) return res.status(404).json({});
     res.json(user);
   } catch (err) {
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Oops! Something went wrong while retrieving your info. Please try again later.' });
   }
 });
 
@@ -165,7 +165,7 @@ router.post('/logout', auth, async (req, res) => {
     await logUserAction(req, req.user._id, 'logout');
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Oops! Something went wrong while logging you out. Please try again later.' });
   }
 });
 

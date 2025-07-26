@@ -7,7 +7,7 @@ const auth = require('../middleware/auth');
 // Helper: isAdmin middleware
 const isAdmin = (req, res, next) => {
   if (req.user && req.user.role === 'admin') return next();
-  return res.status(403).json({ message: 'Admin access required.' });
+  return res.status(403).json({ message: 'Sorry, you need admin access to perform this action.' });
 };
 
 // Email transporter setup (configure with your SMTP or use environment variables)
@@ -28,7 +28,7 @@ router.post('/', async (req, res) => {
   try {
     const { name, email, phone, notes, designTitle, designId } = req.body;
     if (!name || !email) {
-      return res.status(400).json({ message: 'Name and email are required.' });
+      return res.status(400).json({ message: 'Please provide both your name and email to submit a request.' });
     }
     const request = new CustomLookRequest({
       name,
@@ -112,7 +112,7 @@ router.post('/', async (req, res) => {
     }
     res.status(201).json({ message: 'Request submitted successfully.' });
   } catch (err) {
-    res.status(500).json({ message: 'Server error. Please try again.' });
+    res.status(500).json({ message: 'Oops! We could not process your custom look request. Please try again later.' });
   }
 });
 
@@ -124,7 +124,7 @@ router.get('/', auth, isAdmin, async (req, res) => {
     const requests = await CustomLookRequest.find().sort({ createdAt: -1 });
     res.json(requests);
   } catch (err) {
-    res.status(500).json({ message: 'Server error.' });
+    res.status(500).json({ message: 'Oops! Something went wrong. Please try again later.' });
   }
 });
 

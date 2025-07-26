@@ -19,6 +19,6 @@ exports.getRecommendationPerfumes = async (req, res) => {
     res.json(formattedPerfumes);
   } catch (error) {
     console.error('Error fetching perfumes for recommendations:', error);
-    res.status(500).json({ message: 'Error fetching perfume recommendations' });
+    res.status(500).json({ message: 'Oops! We could not fetch perfume recommendations. Please try again later.' });
   }
 };

@@ -10,7 +10,7 @@ const mailer = require('../utils/mailer');
 // Admin role check middleware
 function requireAdmin(req, res, next) {
   if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Admin access required' });
+    return res.status(403).json({ error: 'Sorry, you need admin access to perform this action.' });
   }
   next();
 }
@@ -28,7 +28,7 @@ router.post('/', optionalAuth, async (req, res) => {
   try {
     const { customer, cart, paystackRef, amount, deliveryFee, grandTotal, status, paidAt, sessionId } = req.body;
     if (!customer || !cart || !paystackRef || !amount || deliveryFee == null || grandTotal == null || !status || !paidAt) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      return res.status(400).json({ error: 'Please fill in all required fields to place your order.' });
     }
 
     // --- ENHANCEMENT: Backfill user location and log device robustly ---
@@ -177,7 +177,7 @@ router.post('/', optionalAuth, async (req, res) => {
       email: customer.email
     });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to save order' });
+    res.status(500).json({ error: 'Oops! We could not save your order. Please try again later.' });
   }
 });
 
@@ -207,7 +207,7 @@ router.get('/', auth, requireAdmin, async (req, res) => {
     const orders = await Order.find(query).sort({ createdAt: -1 });
     res.json(orders);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch orders' });
+    res.status(500).json({ error: 'Oops! We could not fetch orders. Please try again later.' });
   }
 });
 
@@ -224,7 +224,7 @@ router.patch('/:id', auth, requireAdmin, async (req, res) => {
     const order = await Order.findByIdAndUpdate(req.params.id, update, { new: true });
     if (!order) {
       console.error('Order not found for id', req.params.id); // DEBUG
-      return res.status(404).json({ error: 'Order not found' });
+      return res.status(404).json({ error: 'Sorry, we could not find the requested order.' });
     }
     await logAdminAction({ req, action: `Updated order status: ${order._id} to ${status}` });
     // Send status update email and push notification to customer, and create Notification for user and admins
@@ -286,7 +286,7 @@ router.patch('/:id', auth, requireAdmin, async (req, res) => {
     res.json(order);
   } catch (err) {
     console.error('Order status update error:', err); // DEBUG
-    res.status(500).json({ error: 'Failed to update order', details: err.message });
+    res.status(500).json({ error: 'Oops! We could not update your order. Please try again later.' });
   }
 });
 
@@ -294,11 +294,11 @@ router.patch('/:id', auth, requireAdmin, async (req, res) => {
 router.delete('/:id', auth, requireAdmin, async (req, res) => {
   try {
     const order = await Order.findByIdAndDelete(req.params.id);
-    if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (!order) return res.status(404).json({ error: 'Sorry, we could not find the requested order.' });
     await logAdminAction({ req, action: `Deleted order: ${order._id}` });
     res.json({ message: 'Order deleted' });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to delete order' });
+    res.status(500).json({ error: 'Oops! We could not delete your order. Please try again later.' });
   }
 });
 
@@ -315,7 +315,7 @@ router.get('/suggestions', auth, requireAdmin, async (req, res) => {
     const suggestions = Array.from(new Set([...emailMatches, ...stateMatches])).slice(0, 10);
     res.json(suggestions);
   } catch (err) {
-    res.status(500).json([]);
+    res.status(500).json({ error: 'Oops! Something went wrong. Please try again later.' });
   }
 });
 
@@ -325,7 +325,7 @@ router.get('/states', auth, requireAdmin, async (req, res) => {
     const states = await Order.distinct('customer.state');
     res.json(states.filter(Boolean).sort());
   } catch (err) {
-    res.status(500).json([]);
+    res.status(500).json({ error: 'Oops! Something went wrong. Please try again later.' });
   }
 });
 
@@ -333,11 +333,11 @@ router.get('/states', auth, requireAdmin, async (req, res) => {
 router.get('/my', auth, async (req, res) => {
   try {
     const userEmail = req.user.email;
-    if (!userEmail) return res.status(400).json({ error: 'User email not found in token' });
+    if (!userEmail) return res.status(400).json({ error: 'Sorry, we could not find your email. Please log in again.' });
     const orders = await Order.find({ 'customer.email': userEmail }).sort({ createdAt: -1 });
     res.json(orders);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch your orders' });
+    res.status(500).json({ error: 'Oops! We could not fetch your orders. Please try again later.' });
   }
 });
 
@@ -345,13 +345,13 @@ router.get('/my', auth, async (req, res) => {
 router.patch('/:id/cancel', auth, async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
-    if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (!order) return res.status(404).json({ error: 'Sorry, we could not find the requested order.' });
     // Only allow if the order belongs to the user and is not delivered/cancelled
     if (order.customer.email !== req.user.email) {
-      return res.status(403).json({ error: 'You can only cancel your own order' });
+      return res.status(403).json({ error: 'Sorry, you can only cancel your own order.' });
     }
     if (order.status === 'delivered' || order.status === 'cancelled') {
-      return res.status(400).json({ error: 'Order cannot be cancelled' });
+      return res.status(400).json({ error: 'This order cannot be cancelled.' });
     }
     order.status = 'cancelled';
     order.cancelledAt = new Date();
@@ -393,7 +393,7 @@ router.patch('/:id/cancel', auth, async (req, res) => {
     }
     res.json(order);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to cancel order' });
+    res.status(500).json({ error: 'Oops! We could not cancel your order. Please try again later.' });
   }
 });
 

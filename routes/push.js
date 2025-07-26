@@ -64,7 +64,7 @@ async function subscribe(req, res) {
     );
     res.status(201).json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to save subscription' });
+    res.status(500).json({ error: 'Oops! We could not save your notification subscription. Please try again later.' });
   }
 }
 router.post('/subscribe', auth, subscribe);

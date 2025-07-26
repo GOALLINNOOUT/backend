@@ -8,7 +8,7 @@ const { sendNotification, notifyAdmins } = require('../utils/notificationUtil');
 router.post('/', async (req, res) => {
   const { name, email, message } = req.body;
   if (!name || !email || !message) {
-    return res.status(400).json({ error: 'All fields are required.' });
+    return res.status(400).json({ error: 'Please fill in all required fields to send your message.' });
   }
   try {
     // Save to DB
@@ -73,7 +73,7 @@ router.post('/', async (req, res) => {
     });
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to process your request.' });
+    res.status(500).json({ error: 'Oops! We could not process your contact request. Please try again later.' });
   }
 });
 

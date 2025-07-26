@@ -15,21 +15,21 @@ const extractCloudinaryPublicId = require('../utils/extractCloudinaryPublicId');
 router.delete('/:id/image', auth, requireAdmin, async (req, res) => {
   try {
     const { publicId } = req.body;
-    if (!publicId) return res.status(400).json({ error: 'Missing publicId' });
+    if (!publicId) return res.status(400).json({ error: 'Please provide the image ID to delete.' });
     // Delete from Cloudinary
     const result = await deleteImage(publicId);
-    if (result.result !== 'ok') return res.status(500).json({ error: 'Failed to delete image from Cloudinary', details: result });
+    if (result.result !== 'ok') return res.status(500).json({ error: 'Oops! We could not delete the image. Please try again later.' });
     // Remove from perfume's images array
     const perfume = await Perfume.findByIdAndUpdate(
       req.params.id,
       { $pull: { images: { $regex: publicId } } },
       { new: true }
     );
-    if (!perfume) return res.status(404).json({ error: 'Perfume not found' });
+    if (!perfume) return res.status(404).json({ error: 'Sorry, we could not find the requested perfume.' });
     await logAdminAction({ req, action: `Deleted image from perfume: ${perfume.name}` });
     res.json({ success: true, perfume });
   } catch (err) {
-    res.status(500).json({ error: 'Server error', details: err.message, stack: err.stack });
+    res.status(500).json({ error: 'Oops! Something went wrong. Please try again later.' });
   }
 });
 
@@ -40,7 +40,7 @@ router.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 // Admin role check middleware
 function requireAdmin(req, res, next) {
   if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Admin access required' });
+    return res.status(403).json({ error: 'Sorry, you need admin access to perform this action.' });
   }
   next();
 }
@@ -139,7 +139,7 @@ router.get('/suggestions', async (req, res) => {
     // Return up to 10 suggestions, prioritizing full product names, then name/title words, then description words
     res.json([...sortedFullNames, ...sortedNameWords, ...sortedDescWords].slice(0, 5));
   } catch (err) {
-    res.status(500).json({ error: 'Server error', details: err.message, stack: err.stack });
+    res.status(500).json({ error: 'Oops! Something went wrong. Please try again later.' });
   }
 });
 
@@ -237,7 +237,7 @@ router.get('/', async (req, res) => {
     const hasMore = page * limit < Math.min(total, 720); // Max 20 pages * 3 = 60
     res.json({ data: perfumes, hasMore });
   } catch (err) {
-    res.status(500).json({ error: 'Server error', details: err.message, stack: err.stack });
+    res.status(500).json({ error: 'Oops! Something went wrong. Please try again later.' });
   }
 });
 
@@ -245,10 +245,10 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const perfume = await Perfume.findById(req.params.id);
-    if (!perfume) return res.status(404).json({ error: 'Not found' });
+    if (!perfume) return res.status(404).json({ error: 'Sorry, we could not find the requested perfume.' });
     res.json(perfume);
   } catch (err) {
-    res.status(500).json({ error: 'Server error', details: err.message, stack: err.stack });
+    res.status(500).json({ error: 'Oops! Something went wrong. Please try again later.' });
   }
 });
 
@@ -277,7 +277,7 @@ router.post('/', auth, requireAdmin, cloudinaryUpload.array('images', 5), async 
     await logAdminAction({ req, action: `Created perfume: ${perfume.name}` });
     res.status(201).json(perfume);
   } catch (err) {
-    res.status(400).json({ error: 'Invalid data', details: err.message, stack: err.stack });
+    res.status(400).json({ error: 'The data provided is invalid. Please check your input and try again.' });
   }
 });
 
@@ -311,11 +311,11 @@ router.put('/:id', auth, requireAdmin, cloudinaryUpload.array('images', 5), asyn
       update,
       { new: true }
     );
-    if (!perfume) return res.status(404).json({ error: 'Not found' });
+    if (!perfume) return res.status(404).json({ error: 'Sorry, we could not find the requested perfume.' });
     await logAdminAction({ req, action: `Updated perfume: ${perfume.name}` });
     res.json(perfume);
   } catch (err) {
-    res.status(400).json({ error: 'Invalid data', details: err.message, stack: err.stack });
+    res.status(400).json({ error: 'The data provided is invalid. Please check your input and try again.' });
   }
 });
 
@@ -323,7 +323,7 @@ router.put('/:id', auth, requireAdmin, cloudinaryUpload.array('images', 5), asyn
 router.delete('/:id', auth, requireAdmin, async (req, res) => {
   try {
     const perfume = await Perfume.findByIdAndDelete(req.params.id);
-    if (!perfume) return res.status(404).json({ error: 'Not found' });
+    if (!perfume) return res.status(404).json({ error: 'Sorry, we could not find the requested perfume.' });
     // Delete all images from Cloudinary
     if (perfume.images && perfume.images.length > 0) {
       for (const url of perfume.images) {
@@ -336,7 +336,7 @@ router.delete('/:id', auth, requireAdmin, async (req, res) => {
     await logAdminAction({ req, action: `Deleted perfume: ${perfume.name}` });
     res.json({ message: 'Deleted' });
   } catch (err) {
-    res.status(500).json({ error: 'Server error', details: err.message, stack: err.stack });
+    res.status(500).json({ error: 'Oops! Something went wrong. Please try again later.' });
   }
 });
 
@@ -344,11 +344,11 @@ router.delete('/:id', auth, requireAdmin, async (req, res) => {
 router.patch('/:id/stock', auth, requireAdmin, async (req, res) => {
   try {
     const { quantity } = req.body;
-    if (!quantity || typeof quantity !== 'number' || quantity === 0) return res.status(400).json({ error: 'Invalid quantity' });
+    if (!quantity || typeof quantity !== 'number' || quantity === 0) return res.status(400).json({ error: 'Please enter a valid quantity.' });
     const perfume = await Perfume.findById(req.params.id);
-    if (!perfume) return res.status(404).json({ error: 'Not found' });
+    if (!perfume) return res.status(404).json({ error: 'Sorry, we could not find the requested perfume.' });
     if (quantity > 0) {
-      if (perfume.stock < quantity) return res.status(400).json({ error: 'Not enough stock' });
+      if (perfume.stock < quantity) return res.status(400).json({ error: `Sorry, we only have ${perfume.stock} left of ${perfume.name}. Please adjust your quantity.` });
       perfume.stock -= quantity;
     } else {
       perfume.stock -= quantity; // quantity is negative, so this adds
@@ -356,7 +356,7 @@ router.patch('/:id/stock', auth, requireAdmin, async (req, res) => {
     await perfume.save();
     res.json({ stock: perfume.stock });
   } catch (err) {
-    res.status(500).json({ error: 'Server error', details: err.message, stack: err.stack });
+    res.status(500).json({ error: 'Oops! Something went wrong. Please try again later.' });
   }
 });
 
@@ -364,10 +364,10 @@ router.patch('/:id/stock', auth, requireAdmin, async (req, res) => {
 router.post('/:id/decrement-stock', optionalAuth, async (req, res) => {
   try {
     const { quantity } = req.body;
-    if (!quantity || typeof quantity !== 'number' || quantity < 1) return res.status(400).json({ error: 'Invalid quantity' });
+    if (!quantity || typeof quantity !== 'number' || quantity < 1) return res.status(400).json({ error: 'Please enter a valid quantity.' });
     const perfume = await Perfume.findById(req.params.id);
-    if (!perfume) return res.status(404).json({ error: 'Not found' });
-    if (perfume.stock < quantity) return res.status(400).json({ error: 'Not enough stock' });
+    if (!perfume) return res.status(404).json({ error: 'Sorry, we could not find the requested perfume.' });
+    if (perfume.stock < quantity) return res.status(400).json({ error: `Sorry, we only have ${perfume.stock} left of ${perfume.name}. Please adjust your quantity.` });
     perfume.stock -= quantity;
     await perfume.save();
     res.json({ stock: perfume.stock });

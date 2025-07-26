@@ -28,7 +28,7 @@ router.post('/start', async (req, res) => {
     res.json({ success: true, sessionId });
   } catch (err) {
     console.error('[session/start] Error starting session:', err);
-    res.status(500).json({ error: 'Failed to start session' });
+    res.status(500).json({ error: 'Oops! We could not start your session. Please try again later.' });
   }
 });
 
@@ -37,7 +37,7 @@ router.post('/end', async (req, res) => {
   const { sessionId } = req.body;
   if (!sessionId) {
     console.log('[session/end] No sessionId provided');
-    return res.status(400).json({ error: 'No sessionId' });
+    return res.status(400).json({ error: 'Session ID is missing. Please refresh and try again.' });
   }
   try {
     const result = await SessionLog.findOneAndUpdate(
@@ -53,7 +53,7 @@ router.post('/end', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('[session/end] Error ending session:', err);
-    res.status(500).json({ error: 'Failed to end session' });
+    res.status(500).json({ error: 'Oops! We could not end your session. Please try again later.' });
   }
 });
 

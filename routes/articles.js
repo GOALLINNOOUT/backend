@@ -28,7 +28,7 @@ router.post('/', auth, requireAdmin, cloudinaryUpload.single('image'), async (re
     await logAdminAction({ req, action: `Created article: ${article.title}` });
     res.status(201).json(article);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Oops! We could not create your article. Please try again later.' });
   }
 });
 
@@ -36,11 +36,11 @@ router.post('/', auth, requireAdmin, cloudinaryUpload.single('image'), async (re
 router.post('/uploads', cloudinaryUpload.single('image'), (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+      return res.status(400).json({ error: 'Please select a file to upload.' });
     }
     res.status(201).json({ url: req.file.path });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Oops! We could not upload your image. Please try again later.' });
   }
 });
 
@@ -119,7 +119,7 @@ router.get('/', async (req, res) => {
     }
     res.json({ articles, total });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Oops! Something went wrong. Please try again later.' });
   }
 });
 
@@ -159,7 +159,7 @@ router.get('/suggestions', async (req, res) => {
     });
     res.json(Array.from(suggestionsSet).slice(0, 8));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Oops! Something went wrong. Please try again later.' });
   }
 });
 
@@ -167,10 +167,10 @@ router.get('/suggestions', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const article = await Article.findById(req.params.id);
-    if (!article) return res.status(404).json({ error: 'Not found' });
+    if (!article) return res.status(404).json({ error: 'Sorry, we could not find the requested article.' });
     res.json(article);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Oops! Something went wrong. Please try again later.' });
   }
 });
 
@@ -190,11 +190,11 @@ router.put('/:id', auth, requireAdmin, cloudinaryUpload.single('image'), async (
       update.image = req.file.path;
     }
     const article = await Article.findByIdAndUpdate(req.params.id, update, { new: true });
-    if (!article) return res.status(404).json({ error: 'Not found' });
+    if (!article) return res.status(404).json({ error: 'Sorry, we could not find the requested article.' });
     await logAdminAction({ req, action: `Updated article: ${article.title}` });
     res.json(article);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Oops! Something went wrong. Please try again later.' });
   }
 });
 
@@ -202,7 +202,7 @@ router.put('/:id', auth, requireAdmin, cloudinaryUpload.single('image'), async (
 router.delete('/:id', auth, requireAdmin, async (req, res) => {
   try {
     const article = await Article.findByIdAndDelete(req.params.id);
-    if (!article) return res.status(404).json({ error: 'Not found' });
+    if (!article) return res.status(404).json({ error: 'Sorry, we could not find the requested article.' });
     // Delete image from Cloudinary
     if (article.image) {
       const publicId = extractCloudinaryPublicId(article.image);
@@ -211,7 +211,7 @@ router.delete('/:id', auth, requireAdmin, async (req, res) => {
     await logAdminAction({ req, action: `Deleted article: ${article.title}` });
     res.json({ message: 'Deleted' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Oops! Something went wrong. Please try again later.' });
   }
 });
 

@@ -12,14 +12,14 @@ exports.postColorMode = async (req, res) => {
     const userFromToken = req.user && req.user._id;
 
     if (!sessionId && !userFromToken) {
-      return res.status(400).json({ error: 'Missing sessionId or user context' });
+      return res.status(400).json({ error: 'Session information is missing. Please refresh and try again.' });
     }
     if (!colorMode) {
-      return res.status(400).json({ error: 'Missing colorMode' });
+      return res.status(400).json({ error: 'Please select a color mode.' });
     }
     // Only allow valid color modes
     if (!['light', 'dark'].includes(colorMode)) {
-      return res.status(400).json({ error: 'Invalid colorMode' });
+      return res.status(400).json({ error: 'Invalid color mode selected. Please choose light or dark.' });
     }
     const Theme = require('../models/Theme');
     let filter = {};
@@ -37,7 +37,7 @@ exports.postColorMode = async (req, res) => {
     res.json({ success: true, theme });
   } catch (err) {
     console.error('Failed to update color mode', err);
-    res.status(500).json({ error: 'Failed to update color mode' });
+    res.status(500).json({ error: 'Oops! We could not update your color mode. Please try again later.' });
   }
 };
 
@@ -59,7 +59,7 @@ exports.getColorModeUsage = async (req, res) => {
     res.json({ colorModeUsage: result });
   } catch (err) {
     console.error('Failed to fetch color mode usage', err);
-    res.status(500).json({ error: 'Failed to fetch color mode usage' });
+    res.status(500).json({ error: 'Oops! We could not fetch color mode usage. Please try again later.' });
   }
 };
 // =========================

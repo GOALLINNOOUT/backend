@@ -18,13 +18,13 @@ const transporter = nodemailer.createTransport({
 router.post('/subscribe', async (req, res) => {
   const { email } = req.body;
   if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-    return res.status(400).json({ message: 'Invalid email address.' });
+    return res.status(400).json({ message: 'Please enter a valid email address.' });
   }
   try {
     // Check for duplicate
     let existing = await Subscriber.findOne({ email });
     if (existing) {
-      return res.status(409).json({ message: 'You are already subscribed.' });
+      return res.status(409).json({ message: 'You are already subscribed to our newsletter.' });
     }
     // Save to DB
     await Subscriber.create({ email });
@@ -70,7 +70,7 @@ router.post('/subscribe', async (req, res) => {
     return res.json({ message: 'Subscription successful! Please check your email.' });
   } catch (err) {
     console.error('Newsletter subscribe error:', err);
-    return res.status(500).json({ message: 'Server error. Please try again later.' });
+    return res.status(500).json({ message: 'Oops! We could not process your subscription. Please try again later.' });
   }
 });
 
@@ -80,7 +80,7 @@ router.get('/subscribers', async (req, res) => {
     const subscribers = await Subscriber.find({}, 'email subscribedAt');
     res.json(subscribers);
   } catch (err) {
-    res.status(500).json({ message: 'Server error.' });
+    res.status(500).json({ message: 'Oops! Something went wrong. Please try again later.' });
   }
 });
 
@@ -89,11 +89,11 @@ router.delete('/subscribers/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const deleted = await Subscriber.findByIdAndDelete(id);
-    if (!deleted) return res.status(404).json({ message: 'Subscriber not found.' });
+    if (!deleted) return res.status(404).json({ message: 'Sorry, we could not find your subscription.' });
     await logAdminAction({ req, action: `Deleted newsletter subscriber: ${deleted.email}` });
     res.json({ message: 'Subscriber deleted.' });
   } catch (err) {
-    res.status(500).json({ message: 'Server error.' });
+    res.status(500).json({ message: 'Oops! Something went wrong. Please try again later.' });
   }
 });
 
@@ -101,7 +101,7 @@ router.delete('/subscribers/:id', async (req, res) => {
 router.post('/notify', async (req, res) => {
   const { subject, message, subscriberIds } = req.body;
   if (!subject || !message) {
-    return res.status(400).json({ message: 'Subject and message are required.' });
+    return res.status(400).json({ message: 'Please provide both a subject and message to send your newsletter.' });
   }
   try {
     let recipients;
@@ -110,7 +110,7 @@ router.post('/notify', async (req, res) => {
     } else {
       recipients = await Subscriber.find();
     }
-    if (!recipients.length) return res.status(404).json({ message: 'No subscribers found.' });
+    if (!recipients.length) return res.status(404).json({ message: 'Sorry, we could not find any subscribers to send your newsletter.' });
     // Branded, responsive HTML email template
     const brandTemplate = (content) => `
       <div style="background:#f7f6fa;padding:0;margin:0;width:100%;font-family:'Segoe UI',Arial,sans-serif;">
@@ -154,7 +154,7 @@ router.post('/notify', async (req, res) => {
     res.json({ message: 'Notification sent.' });
   } catch (err) {
     console.error('Newsletter notify error:', err);
-    res.status(500).json({ message: 'Server error. Could not send notification.' });
+    res.status(500).json({ message: 'Oops! We could not send your notification. Please try again later.' });
   }
 });
 

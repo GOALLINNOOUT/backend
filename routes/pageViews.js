@@ -9,7 +9,7 @@ router.post('/', async (req, res) => {
   try {
     let { page, referrer, sessionId, ip, userAgent, timestamp } = req.body;
     // Basic validation
-    if (!page) return res.status(400).json({ error: 'Page is required' });
+    if (!page) return res.status(400).json({ error: 'Please specify the page you are viewing.' });
     // Always use user-agent header if userAgent not provided in body
     if (!userAgent) {
       userAgent = req.headers['user-agent'] || '';
@@ -19,7 +19,7 @@ router.post('/', async (req, res) => {
     if (sessionId) {
       const session = await SessionLog.findOne({ sessionId });
       if (!session || session.endTime) {
-        return res.status(440).json({ error: 'Session expired' });
+        return res.status(440).json({ error: 'Your session has expired. Please refresh and try again.' });
       }
     }
 
@@ -73,7 +73,7 @@ router.post('/', async (req, res) => {
     res.status(201).json({ message: 'Page view logged' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to log page view' });
+    res.status(500).json({ error: 'Oops! We could not log your page view. Please try again later.' });
   }
 });
 
