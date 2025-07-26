@@ -69,3 +69,4 @@ router.post('/', optionalAuth, async (req, res) => {
     return res.status(500).json({ error: 'Oops! We could not process your appointment request. Please try again later.' });
   }
 });
+module.exports = router;
