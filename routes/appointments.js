@@ -38,6 +38,22 @@ router.post('/', optionalAuth, async (req, res) => {
         message: `New appointment request from ${name} (${email}) for ${service} on ${datetime}.`,
         type: 'system'
       });
+      // Send push notification to all admins
+      try {
+        const { sendPushToUserAndAdmins } = require('./push');
+        const User = require('../models/User');
+        const admins = await User.find({ role: 'admin' });
+        const notifMsgAdmin = `New appointment request from ${name} (${email}) for ${service} on ${datetime}.`;
+        for (const admin of admins) {
+          await sendPushToUserAndAdmins(admin._id, {
+            title: 'New Appointment',
+            body: notifMsgAdmin,
+            url: '/notifications'
+          });
+        }
+      } catch (e) {
+        console.error('Failed to send push notification to admins:', e);
+      }
     } catch (mailErr) {
       // Log but don't fail the request if email fails
       console.error('Email error:', mailErr);
