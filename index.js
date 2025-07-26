@@ -68,7 +68,6 @@ app.set('trust proxy', true);
 app.use(cors({
   origin: [
     'http://localhost:5173',
-    'https://frontend-pearl-tau-37.vercel.app',
     'https://jccloset.vercel.app'
   ],
   credentials: true
